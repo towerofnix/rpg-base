@@ -12,16 +12,22 @@ const dep = p => {
 }
 
 let tileAtlas
+let game
 
 Promise.all([
-  'src/Entity.js',
-  'src/Entitymap.js',
-  'src/HeroEntity.js',
-  'src/Levelmap.js',
-  'src/TileAtlas.js',
-  'src/Tilemap.js',
-  'src/util.js'
-].map(dep)).then(() => {
+  dep('src/util.js'),
+  dep('src/KeyListener.js'),
+  dep('src/TileAtlas.js'),
+
+  dep('src/Game.js'),
+
+  dep('src/Entity.js')
+    .then(() => dep('src/entities/HeroEntity.js')),
+
+  dep('src/Entitymap.js'),
+  dep('src/Tilemap.js'),
+  dep('src/Levelmap.js')
+]).then(() => {
   const atlasImage = new Image()
   atlasImage.src = './game/atlas.png'
 
@@ -33,15 +39,19 @@ Promise.all([
   canvasTarget.width = 250
   canvasTarget.height = 250
 
-  const levelmap = new Levelmap(11, 4, tileAtlas)
-  levelmap.tilemap.tiles = [
+  game = new Game(canvasTarget)
+
+  game.levelmap.width = 11
+  game.levelmap.height = 4
+  game.levelmap.tileAtlas = tileAtlas
+  game.levelmap.tilemap.tiles = [
     0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
     0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
     0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
   ]
 
-  levelmap.entitymap.loadEntityData([
+  game.levelmap.entitymap.loadEntityData([
     [HeroEntity, 0, 0]
   ])
 
@@ -50,20 +60,20 @@ Promise.all([
     ctx.fillStyle = '#25A'
     ctx.fillRect(0, 0, canvasTarget.width, canvasTarget.height)
 
-    levelmap.tick()
-    levelmap.drawTo(canvasTarget)
+    game.tick()
+    game.draw()
 
     const hero = filterOne(
-      levelmap.entitymap.entities, e => e instanceof HeroEntity
+      game.levelmap.entitymap.entities, e => e instanceof HeroEntity
     )
 
-    levelmap.scrollX = (
-      hero.x - (canvasTarget.width / levelmap.tileSize / 2) +
+    game.levelmap.scrollX = (
+      hero.x - (canvasTarget.width / game.levelmap.tileSize / 2) +
       Math.sin(Date.now() / 500 + 800) * 0.3
     )
 
-    levelmap.scrollY = (
-      hero.y - (canvasTarget.height / levelmap.tileSize / 2) +
+    game.levelmap.scrollY = (
+      hero.y - (canvasTarget.height / game.levelmap.tileSize / 2) +
       Math.sin(Date.now() / 1000) * 0.3
     )
 

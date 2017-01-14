@@ -1,6 +1,6 @@
-class HeroEntity extends Entity {
-  constructor() {
-    super()
+class RoamEntity extends Entity {
+  constructor(...args) {
+    super(...args)
 
     this.timer = 10
     this.randomDirection()
@@ -13,13 +13,7 @@ class HeroEntity extends Entity {
       const [ prop, multiplier ] = this.direction
 
       this[prop] += multiplier * 0.1
-
-      // Stupid math issues cause numbers to become weird decimal versions of
-      // themselves when doing arithmetic/incrementing/decrementing/etc, so we
-      // need to round them to just the tenths decimal place (since that's all
-      // the precision we need).
-      this.x = Math.round(this.x * 10) / 10
-      this.y = Math.round(this.y * 10) / 10
+      this.fixPosition()
     }
 
     if (this.timer === 0) {

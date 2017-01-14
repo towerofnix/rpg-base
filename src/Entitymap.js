@@ -21,7 +21,7 @@ class Entitymap {
     this.entities = this.entityData.map(data => {
       const [ cls, x, y ] = data
 
-      const inst = new cls()
+      const inst = new cls(this.levelmap)
       inst.x = x
       inst.y = y
 

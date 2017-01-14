@@ -1,5 +1,6 @@
 class Levelmap {
-  constructor(width, height, atlas, tileSize = 16) {
+  constructor(game, width, height, atlas, tileSize = 16) {
+    this.game = game
     this.width = width
     this.height = height
     this.tileAtlas = atlas
