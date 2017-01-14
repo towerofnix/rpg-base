@@ -24,3 +24,16 @@ const joinPosToIndex = function([x, y], w, s = 1) {
 
   return i
 }
+
+const filterOne = function(arr, fn) {
+  // Like normal array filter, except it only returns the first match. Returns
+  // null if no items match.
+
+  for (let item of arr) {
+    if (fn(item)) {
+      return item
+    }
+  }
+
+  return null
+}

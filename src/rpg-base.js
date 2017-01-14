@@ -47,13 +47,25 @@ Promise.all([
 
   const draw = function() {
     const ctx = canvasTarget.getContext('2d')
-    ctx.fillStyle = 'black'
+    ctx.fillStyle = '#25A'
     ctx.fillRect(0, 0, canvasTarget.width, canvasTarget.height)
 
     levelmap.tick()
     levelmap.drawTo(canvasTarget)
-    levelmap.scrollX = Math.sin(Date.now() / 500 + 800) - 5
-    levelmap.scrollY = Math.sin(Date.now() / 1000) - 5
+
+    const hero = filterOne(
+      levelmap.entitymap.entities, e => e instanceof HeroEntity
+    )
+
+    levelmap.scrollX = (
+      hero.x - (canvasTarget.width / levelmap.tileSize / 2) +
+      Math.sin(Date.now() / 500 + 800) * 0.3
+    )
+
+    levelmap.scrollY = (
+      hero.y - (canvasTarget.height / levelmap.tileSize / 2) +
+      Math.sin(Date.now() / 1000) * 0.3
+    )
 
     requestAnimationFrame(draw)
   }

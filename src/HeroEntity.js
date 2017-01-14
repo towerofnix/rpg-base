@@ -9,10 +9,10 @@ class HeroEntity extends Entity {
   tick() {
     this.timer--
 
-    if (this.timer < 5) {
+    if (this.timer < 10) {
       const [ prop, multiplier ] = this.direction
 
-      this[prop] += multiplier * 0.2
+      this[prop] += multiplier * 0.1
 
       // Stupid math issues cause numbers to become weird decimal versions of
       // themselves when doing arithmetic/incrementing/decrementing/etc, so we
@@ -23,7 +23,7 @@ class HeroEntity extends Entity {
     }
 
     if (this.timer === 0) {
-      this.timer = 60
+      this.timer = 60 + Math.ceil(Math.random() * 30)
       this.randomDirection()
     }
   }
