@@ -26,6 +26,7 @@ Promise.all([
 
   dep('src/Entitymap.js'),
   dep('src/Tilemap.js'),
+  dep('src/Wallmap.js'),
   dep('src/Levelmap.js')
 ]).then(() => {
   const atlasImage = new Image()
@@ -42,26 +43,32 @@ Promise.all([
   game = new Game(canvasTarget)
 
   game.levelmap.width = 11
-  game.levelmap.height = 4
+  game.levelmap.height = 5
   game.levelmap.tileAtlas = tileAtlas
   game.levelmap.tilemap.tiles = [
+    0x01, 0x01, 0x01, 0x01, 0x02, 0x02, 0x02, 0x02, 0x02, 0x01, 0x01,
     0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-    0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-    0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01,
+    0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x00, 0x01, 0x01, 0x02,
+    0x01, 0x02, 0x02, 0x02, 0x02, 0x02, 0x01, 0x00, 0x01, 0x02, 0x02
+  ]
+
+  game.levelmap.wallmap.walls = [
+    0b0000, 0b0000, 0b0000, 0b0000, 0b0011, 0b0010, 0b0010, 0b0010, 0b0010, 0b0001, 0b0000,
+    0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000,
+    0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000,
+    0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b1001,
+    0b0000, 0b1001, 0b1000, 0b1000, 0b1000, 0b1100, 0b0000, 0b0000, 0b0000, 0b1001, 0b0000,
   ]
 
   game.levelmap.entitymap.loadEntityData([
-    [HeroEntity, 0, 0]
+    [HeroEntity, 5, 2]
   ])
 
   const draw = function() {
     const ctx = canvasTarget.getContext('2d')
     ctx.fillStyle = '#25A'
     ctx.fillRect(0, 0, canvasTarget.width, canvasTarget.height)
-
-    game.tick()
-    game.draw()
 
     const hero = filterOne(
       game.levelmap.entitymap.entities, e => e instanceof HeroEntity
@@ -76,6 +83,9 @@ Promise.all([
       hero.y - (canvasTarget.height / game.levelmap.tileSize / 2) +
       Math.sin(Date.now() / 1000) * 0.3
     )
+
+    game.tick()
+    game.draw()
 
     requestAnimationFrame(draw)
   }

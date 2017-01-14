@@ -10,12 +10,14 @@ class Levelmap {
     this.scrollY = 0
 
     this.tilemap = new Tilemap(this)
+    this.wallmap = new Wallmap(this)
     this.entitymap = new Entitymap(this)
   }
 
   drawTo(canvasTarget) {
     this.tilemap.drawTo(canvasTarget)
     this.entitymap.drawTo(canvasTarget)
+    this.wallmap.drawTo(canvasTarget)
   }
 
   tick() {

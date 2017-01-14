@@ -8,19 +8,21 @@ class HeroEntity extends Entity {
     const down = ['y', +1]
 
     if (!this.direction) {
-      if (keyListener.isPressed(39)) {
+      const movement = this.levelmap.wallmap.getAllowedMovement(this.x, this.y)
+
+      if (keyListener.isPressed(39) && movement.right) {
         this.direction = right
       }
 
-      if (keyListener.isPressed(38)) {
+      if (keyListener.isPressed(38) && movement.up) {
         this.direction = up
       }
 
-      if (keyListener.isPressed(37)) {
+      if (keyListener.isPressed(37) && movement.left) {
         this.direction = left
       }
 
-      if (keyListener.isPressed(40)) {
+      if (keyListener.isPressed(40) && movement.down) {
         this.direction = down
       }
     }
