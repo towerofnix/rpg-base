@@ -37,8 +37,8 @@ Promise.all([
   return waitUntilLoaded(atlasImage)
 }).then(() => {
   const canvasTarget = document.getElementById('target')
-  canvasTarget.width = 250
-  canvasTarget.height = 250
+  canvasTarget.width = 256
+  canvasTarget.height = 256
 
   game = new Game(canvasTarget)
 
@@ -65,6 +65,8 @@ Promise.all([
     [HeroEntity, 5, 2]
   ])
 
+  game.levelmap.editMode = true
+
   const draw = function() {
     const ctx = canvasTarget.getContext('2d')
     ctx.fillStyle = '#25A'
@@ -74,15 +76,15 @@ Promise.all([
       game.levelmap.entitymap.entities, e => e instanceof HeroEntity
     )
 
-    game.levelmap.scrollX = (
-      hero.x - (canvasTarget.width / game.levelmap.tileSize / 2) +
-      Math.sin(Date.now() / 500 + 800) * 0.3
-    )
+    // game.levelmap.scrollX = (
+    //   hero.x - (canvasTarget.width / game.levelmap.tileSize / 2) +
+    //   Math.sin(Date.now() / 500 + 800) * 0.3
+    // )
 
-    game.levelmap.scrollY = (
-      hero.y - (canvasTarget.height / game.levelmap.tileSize / 2) +
-      Math.sin(Date.now() / 1000) * 0.3
-    )
+    // game.levelmap.scrollY = (
+    //   hero.y - (canvasTarget.height / game.levelmap.tileSize / 2) +
+    //   Math.sin(Date.now() / 1000) * 0.3
+    // )
 
     game.tick()
     game.draw()
