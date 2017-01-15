@@ -59,4 +59,17 @@ class Tilemap {
 
     return this.tiles[i]
   }
+
+  setTileAt(tileX, tileY, tileID) {
+    // Sets a tile at the given tileX and tileY position. Like getTileAt,
+    // tileX and tileY should be as if the space between each tile was 1, not
+    // tileSize. ([0, 1, 2, 3], not [0, 16, 32, 48].)
+    //
+    // The third argument is the ID of the tile, which is used with the tile
+    // atlas and such.
+
+    const i = joinPosToIndex([tileX, tileY], this.levelmap.width, 1)
+
+    this.tiles[i] = tileID
+  }
 }

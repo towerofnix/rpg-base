@@ -6,7 +6,15 @@ class Levelmap {
     this.tileAtlas = atlas
     this.tileSize = tileSize
 
+    // In edit mode, the world's view is below a tile picker, so we need to
+    // render respective elements to a shorter canvas.
     this.editMode = false
+    this.editModeCanvas = document.createElement('canvas')
+    this.editModeCanvas.width = game.canvasTarget.width
+    this.editModeCanvas.height = game.canvasTarget.height - this.tileSize
+
+    this.hotbarTiles = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    this.hotbarSelectedIndex = 0
 
     this.scrollX = 0
     this.scrollY = 0
@@ -21,12 +29,25 @@ class Levelmap {
   }
 
   drawTo(canvasTarget) {
-    this.tilemap.drawTo(canvasTarget)
-    this.entitymap.drawTo(canvasTarget)
-    this.wallmap.drawTo(canvasTarget)
-
     if (this.editMode) {
-      this.drawTileCursorTo(canvasTarget)
+      const ectx = this.editModeCanvas.getContext('2d')
+      ectx.clearRect(
+        0, 0, this.editModeCanvas.width, this.editModeCanvas.height
+      )
+
+      this.tilemap.drawTo(this.editModeCanvas)
+      this.entitymap.drawTo(this.editModeCanvas)
+      this.wallmap.drawTo(this.editModeCanvas)
+      this.drawTileCursorTo(this.editModeCanvas)
+
+      const ctx = canvasTarget.getContext('2d')
+      ctx.drawImage(this.editModeCanvas, 0, this.tileSize)
+
+      this.drawEditHotbarTo(canvasTarget)
+    } else {
+      this.tilemap.drawTo(canvasTarget)
+      this.entitymap.drawTo(canvasTarget)
+      this.wallmap.drawTo(canvasTarget)
     }
   }
 
@@ -36,19 +57,66 @@ class Levelmap {
 
     const ctx = canvasTarget.getContext('2d')
 
+    ctx.drawImage(this.drawNewTileCursor(), tileX, tileY)
+  }
+
+  drawNewTileCursor() {
+    // Draws a totally new tile cursor onto a new canvas. Probably not very
+    // efficient, since it has to create a new <canvas> element every time it's
+    // called..
+
+    const canvas = document.createElement('canvas')
+    canvas.width = this.tileSize
+    canvas.height = this.tileSize
+
+    const ctx = canvas.getContext('2d')
+
     const blink = 0.75 + 0.25 * Math.sin(Date.now() / 200)
     ctx.fillStyle = `rgba(255, 255, 255, ${blink})`
 
     ctx.beginPath()
-    ctx.rect(tileX, tileY, this.tileSize, this.tileSize)
+    ctx.rect(0, 0, this.tileSize, this.tileSize)
 
     // This is a "counter-clockwise" rectangle, it cuts out of the cursor
     // rectangle.
     ctx.rect(
-      tileX + this.tileSize - 2, tileY + 2,
-      -this.tileSize + 4, this.tileSize - 4)
+      this.tileSize - 2, 2,
+      -this.tileSize + 4, this.tileSize - 4
+    )
 
     ctx.fill()
+
+    return canvas
+  }
+
+  drawEditHotbarTo(canvasTarget) {
+    const ctx = canvasTarget.getContext('2d')
+
+    ctx.fillStyle = 'black'
+    ctx.fillRect(0, 0, canvasTarget.width, this.tileSize)
+
+    // The hotbar tiles.
+    for (let i = 0; i < 9; i++) {
+      const hotbarID = this.hotbarTiles[i]
+
+      ctx.drawImage(
+        this.tileAtlas.image,
+
+        ...tileAtlas.getTexturePos(hotbarID),
+        this.tileAtlas.textureSize, this.tileAtlas.textureSize,
+
+        Math.floor(i * this.tileSize), 0,
+        this.tileSize, this.tileSize
+      )
+    }
+
+    // Draw a tile cursor over the selected tile.
+    ctx.drawImage(this.drawNewTileCursor(), this.hotbarSelectedIndex * this.tileSize, 0)
+
+    // Separator bar. It makes it clear that the tile picker isn't part of the
+    // world map.
+    ctx.fillStyle = 'white'
+    ctx.fillRect(0, this.tileSize, canvasTarget.width, 1)
   }
 
   tick() {
@@ -101,11 +169,36 @@ class Levelmap {
       this.moveTileCursorDelayTicks--
     }
 
+    // Constrain cursor to level ----------------------------------------------
+
+    // The tile cursor shouldn't be able to move out of the level bounds.
+
+    if (this.cursorTileX > (this.width - 1)) {
+      this.cursorTileX = this.width - 1
+    }
+
+    if (this.cursorTileX < 0) {
+      this.cursorTileX = 0
+    }
+
+    if (this.cursorTileY >= (this.height - 1)) {
+      this.cursorTileY = this.height - 1
+    }
+
+    if (this.cursorTileY < 0) {
+      this.cursorTileY = 0
+    }
+
+    // Make view follow cursor ------------------------------------------------
+
     const canvasWidth = Math.floor(
-      this.game.canvasTarget.width / this.tileSize)
+      this.editModeCanvas.width / this.tileSize)
 
     const canvasHeight = Math.floor(
-      this.game.canvasTarget.height / this.tileSize)
+      this.editModeCanvas.height / this.tileSize)
+
+    // The view will follow the tile cursor when the cursor moves out of the
+    // view's edges.
 
     if (this.cursorTileX - this.scrollX >= canvasWidth) {
       this.scrollX = this.cursorTileX - canvasWidth + 1
@@ -121,6 +214,28 @@ class Levelmap {
 
     if (this.cursorTileY - this.scrollY <= 0) {
       this.scrollY = this.cursorTileY
+    }
+
+    // Tile placing -----------------------------------------------------------
+
+    // Tilemap diffs would be cool but totally unhelpful, lol.
+
+    if (keyListener.isPressed(32)) { // Space
+      const selectedID = this.hotbarTiles[this.hotbarSelectedIndex]
+      this.tilemap.setTileAt(this.cursorTileX, this.cursorTileY, selectedID)
+    }
+
+    // Tile selecting ---------------------------------------------------------
+
+    // The key code for (number n) is (n + 48). Handy!
+    //
+    // Since JS indexes start at 0 but the hotbar keys start at 1, we also
+    // need to subtract one from the key index.
+
+    for (let i = 1; i <= 9; i++) {
+      if (keyListener.isPressed(i + 48)) {
+        this.hotbarSelectedIndex = i - 1
+      }
     }
   }
 
