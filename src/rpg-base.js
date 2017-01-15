@@ -19,6 +19,8 @@ Promise.all([
   dep('src/KeyListener.js'),
   dep('src/TileAtlas.js'),
 
+  dep('src/Menu.js'),
+
   dep('src/Game.js'),
 
   dep('src/Entity.js')
@@ -76,15 +78,17 @@ Promise.all([
       game.levelmap.entitymap.entities, e => e instanceof HeroEntity
     )
 
-    // game.levelmap.scrollX = (
-    //   hero.x - (canvasTarget.width / game.levelmap.tileSize / 2) +
-    //   Math.sin(Date.now() / 500 + 800) * 0.3
-    // )
+    if (game.levelmap.testMode) {
+      game.levelmap.scrollX = (
+        hero.x - (canvasTarget.width / game.levelmap.tileSize / 2) +
+        Math.sin(Date.now() / 500 + 800) * 0.3
+      )
 
-    // game.levelmap.scrollY = (
-    //   hero.y - (canvasTarget.height / game.levelmap.tileSize / 2) +
-    //   Math.sin(Date.now() / 1000) * 0.3
-    // )
+      game.levelmap.scrollY = (
+        hero.y - (canvasTarget.height / game.levelmap.tileSize / 2) +
+        Math.sin(Date.now() / 1000) * 0.3
+      )
+    }
 
     game.tick()
     game.draw()

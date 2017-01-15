@@ -28,6 +28,84 @@ class Levelmap {
     this.editWallLastSide = null
     this.didToggleEditMode = false
 
+    this.editInfoMenu = new Menu(game, [
+      {label: 'Resize map..', action: () => {
+        let newWidth = this.width
+        let newHeight = this.height
+
+        const updateWidthLabel = () => {
+          widthMenuItem.label = 'Width: '  + newWidth
+        }
+
+        const widthMenuItem = {
+          label: '..', keyAction: key => {
+            if (key >= 48 && key <= 57) {
+              newWidth = parseInt(
+                newWidth.toString().concat(String.fromCharCode(key))
+              )
+            } else if (key === 8) {
+              newWidth = parseInt(newWidth.toString().slice(0, -1))
+            }
+
+            if (isNaN(newWidth)) {
+              newWidth = 0
+            }
+
+            if (newWidth > 1024) {
+              newWidth = 1024
+            }
+
+            updateWidthLabel()
+          }
+        }
+
+        const updateHeightLabel = () => {
+          heightMenuItem.label  ='Height: ' + newHeight
+        }
+
+        const heightMenuItem = {
+          label: '..', keyAction: key => {
+            if (key >= 48 && key <= 57) {
+              newHeight = parseInt(
+                newHeight.toString().concat(String.fromCharCode(key))
+              )
+            } else if (key === 8) {
+              newHeight = parseInt(newHeight.toString().slice(0, -1))
+            }
+
+            if (isNaN(newHeight)) {
+              newHeight = 0
+            }
+
+            if (newHeight > 1024) {
+              newHeight = 1024
+            }
+
+            updateHeightLabel()
+          }
+        }
+
+        updateWidthLabel()
+        updateHeightLabel()
+
+        this.activeEditMenu = new Menu(game, [
+          widthMenuItem, heightMenuItem,
+          {label: 'Confirm', action: () => {
+            this.resize(newWidth, newHeight)
+            this.activeEditMenu = this.editInfoMenu
+          }},
+          {label: 'Cancel', action: () => {
+            this.activeEditMenu = this.editInfoMenu
+          }}
+        ])
+      }},
+      {label: 'Edit map..', action: () => {
+        this.activeEditMenu = null
+      }}
+    ])
+
+    this.activeEditMenu = this.editInfoMenu
+
     this.tilemap = new Tilemap(this)
     this.wallmap = new Wallmap(this)
     this.entitymap = new Entitymap(this)
@@ -35,20 +113,24 @@ class Levelmap {
 
   drawTo(canvasTarget) {
     if (this.editMode && !this.testMode) {
-      const ectx = this.editModeCanvas.getContext('2d')
-      ectx.clearRect(
-        0, 0, this.editModeCanvas.width, this.editModeCanvas.height
-      )
+      if (this.activeEditMenu) {
+        this.activeEditMenu.drawTo(canvasTarget)
+      } else {
+        const ectx = this.editModeCanvas.getContext('2d')
+        ectx.clearRect(
+          0, 0, this.editModeCanvas.width, this.editModeCanvas.height
+        )
 
-      this.tilemap.drawTo(this.editModeCanvas)
-      this.entitymap.drawTo(this.editModeCanvas)
-      this.wallmap.drawTo(this.editModeCanvas)
-      this.drawTileCursorTo(this.editModeCanvas)
+        this.tilemap.drawTo(this.editModeCanvas)
+        this.entitymap.drawTo(this.editModeCanvas)
+        this.wallmap.drawTo(this.editModeCanvas)
+        this.drawTileCursorTo(this.editModeCanvas)
 
-      const ctx = canvasTarget.getContext('2d')
-      ctx.drawImage(this.editModeCanvas, 0, this.tileSize)
+        const ctx = canvasTarget.getContext('2d')
+        ctx.drawImage(this.editModeCanvas, 0, this.tileSize)
 
-      this.drawEditHotbarTo(canvasTarget)
+        this.drawEditHotbarTo(canvasTarget)
+      }
     } else {
       this.tilemap.drawTo(canvasTarget)
       this.entitymap.drawTo(canvasTarget)
@@ -140,7 +222,11 @@ class Levelmap {
     if (this.testMode) {
       this.gameTick()
     } else {
-      this.editorTick()
+      if (this.activeEditMenu) {
+        this.activeEditMenu.tick()
+      } else {
+        this.editorTick()
+      }
     }
 
     // Test mode --------------------------------------------------------------
@@ -295,6 +381,12 @@ class Levelmap {
 
       this.wallmap.setWallAt(this.cursorTileX, this.cursorTileY, wall)
     }
+
+    // Utility menu access
+
+    if (keyListener.isJustPressed(27)) {
+      this.activeEditMenu = this.editInfoMenu
+    }
   }
 
   moveCursor(x, y) {
@@ -307,5 +399,28 @@ class Levelmap {
     this.cursorTileY += y
     this.scrollX += x
     this.scrollY += y
+  }
+
+  resize(newWidth, newHeight) {
+    const newTiles = []
+    const newWalls = []
+
+    for (let y = 0; y < newHeight; y++) {
+      for (let x = 0; x < newWidth; x++) {
+        if (x < this.width && y < this.height) {
+          newTiles.push(this.tilemap.getTileAt(x, y))
+          newWalls.push(this.wallmap.getWallAt(x, y))
+        } else {
+          newTiles.push(0x00)
+          newWalls.push(0b0000)
+        }
+      }
+    }
+
+    this.width = newWidth
+    this.height = newHeight
+
+    this.tilemap.tiles = newTiles
+    this.wallmap.walls = newWalls
   }
 }

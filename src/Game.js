@@ -11,6 +11,8 @@ class Game {
 
   tick() {
     this.levelmap.tick()
+
+    this.keyListener.clearJustPressed()
   }
 
   draw() {
