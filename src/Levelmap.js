@@ -6,9 +6,11 @@ class Levelmap {
     this.tileAtlas = atlas
     this.tileSize = tileSize
 
+    this.editMode = false
+    this.testMode = false
+
     // In edit mode, the world's view is below a tile picker, so we need to
     // render respective elements to a shorter canvas.
-    this.editMode = false
     this.editModeCanvas = document.createElement('canvas')
     this.editModeCanvas.width = game.canvasTarget.width
     this.editModeCanvas.height = game.canvasTarget.height - this.tileSize
@@ -24,6 +26,7 @@ class Levelmap {
     this.moveTileCursorDelayTicks = 6
 
     this.editWallLastSide = null
+    this.didToggleEditMode = false
 
     this.tilemap = new Tilemap(this)
     this.wallmap = new Wallmap(this)
@@ -31,7 +34,7 @@ class Levelmap {
   }
 
   drawTo(canvasTarget) {
-    if (this.editMode) {
+    if (this.editMode && !this.testMode) {
       const ectx = this.editModeCanvas.getContext('2d')
       ectx.clearRect(
         0, 0, this.editModeCanvas.width, this.editModeCanvas.height
@@ -124,11 +127,37 @@ class Levelmap {
     if (this.editMode) {
       this.editModeTick()
     } else {
-      this.entitymap.tick()
+      this.gameTick()
     }
   }
 
+  gameTick() {
+    this.entitymap.tick()
+  }
+
   editModeTick() {
+    const { keyListener } = this.game
+
+    if (this.testMode) {
+      this.gameTick()
+    } else {
+      this.editorTick()
+    }
+
+    // Test mode --------------------------------------------------------------
+
+    if (keyListener.isPressed(17) && keyListener.isPressed(84)) { // ^T
+      if (!this.didToggleEditMode) {
+        this.testMode = !this.testMode
+      }
+
+      this.didToggleEditMode = true
+    } else {
+      this.didToggleEditMode = false
+    }
+  }
+
+  editorTick() {
     const { keyListener } = this.game
 
     // Handle editor movement through keyboard input --------------------------
@@ -156,16 +185,16 @@ class Levelmap {
       // tile.)
       if (this.moveTileCursorDelayTicks === 0) {
         if (keyListener.isPressed(39)) {
-          if (!this.didMoveTileCursor) moveFn(+amount, 0)
+          moveFn(+amount, 0)
           this.moveTileCursorDelayTicks = delay
         } else if (keyListener.isPressed(38)) {
-          if (!this.didMoveTileCursor) moveFn(0, -amount)
+          moveFn(0, -amount)
           this.moveTileCursorDelayTicks = delay
         } else if (keyListener.isPressed(37)) {
-          if (!this.didMoveTileCursor) moveFn(-amount, 0)
+          moveFn(-amount, 0)
           this.moveTileCursorDelayTicks = delay
         } else if (keyListener.isPressed(40)) {
-          if (!this.didMoveTileCursor) moveFn(0, +amount)
+          moveFn(0, +amount)
           this.moveTileCursorDelayTicks = delay
         } else {
           this.moveTileCursorDelayTicks = 0
