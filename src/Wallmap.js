@@ -14,11 +14,20 @@ class Wallmap {
 
   getWallAt(tileX, tileY) {
     // Gets the wall at the given X and Y position. Basically the same as
-    // Tilemap's getWallAt.
+    // Tilemap's getTileAt.
 
     const i = joinPosToIndex([tileX, tileY], this.levelmap.width, 1)
 
     return this.walls[i]
+  }
+
+  setWallAt(tileX, tileY, wall) {
+    // Sets a wall at the given X and Y position. Basically the same as
+    // Tilemap's setTileAt.
+
+    const i = joinPosToIndex([tileX, tileY], this.levelmap.width, 1)
+
+    this.walls[i] = wall
   }
 
   getAllowedMovement(tileX, tileY) {

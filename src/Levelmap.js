@@ -23,6 +23,8 @@ class Levelmap {
     this.cursorTileY = 0
     this.moveTileCursorDelayTicks = 6
 
+    this.editWallLastSide = null
+
     this.tilemap = new Tilemap(this)
     this.wallmap = new Wallmap(this)
     this.entitymap = new Entitymap(this)
@@ -47,7 +49,6 @@ class Levelmap {
     } else {
       this.tilemap.drawTo(canvasTarget)
       this.entitymap.drawTo(canvasTarget)
-      this.wallmap.drawTo(canvasTarget)
     }
   }
 
@@ -132,41 +133,46 @@ class Levelmap {
 
     // Handle editor movement through keyboard input --------------------------
 
-    // If we press an arrow key and hold SHIFT, we should move at 10x speed.
-    // Otherwise just move one tile. Also, if we're moving quickly, the delay
-    // between each jump should be longer.
-    const amount = keyListener.isPressed(16) ? 10 : 1
-    const delay = keyListener.isPressed(16) ? 10 : 6
+    // Cursor/view movement should completely be disabled if the W key is
+    // pressed, which controls wall placement.
+    if (!keyListener.isPressed(87)) {
 
-    // If we press an arrow key and hold ALT (option), we should move the view
-    // along with the cursor. Otherwise just move the cursor.
-    const moveFn = (
-      keyListener.isPressed(18)
-      ? (x, y) => this.moveViewAndCursor(x, y)
-      : (x, y) => this.moveCursor(x, y)
-    )
+      // If we press an arrow key and hold SHIFT, we should move at 10x speed.
+      // Otherwise just move one tile. Also, if we're moving quickly, the delay
+      // between each jump should be longer.
+      const amount = keyListener.isPressed(16) ? 10 : 1
+      const delay = keyListener.isPressed(16) ? 10 : 6
 
-    // Actually handle moving. This only runs when we push down an arrow key.
-    // (That is, you have to release the arrow keys before moving another
-    // tile.)
-    if (this.moveTileCursorDelayTicks === 0) {
-      if (keyListener.isPressed(39)) {
-        if (!this.didMoveTileCursor) moveFn(+amount, 0)
-        this.moveTileCursorDelayTicks = delay
-      } else if (keyListener.isPressed(38)) {
-        if (!this.didMoveTileCursor) moveFn(0, -amount)
-        this.moveTileCursorDelayTicks = delay
-      } else if (keyListener.isPressed(37)) {
-        if (!this.didMoveTileCursor) moveFn(-amount, 0)
-        this.moveTileCursorDelayTicks = delay
-      } else if (keyListener.isPressed(40)) {
-        if (!this.didMoveTileCursor) moveFn(0, +amount)
-        this.moveTileCursorDelayTicks = delay
+      // If we press an arrow key and hold ALT (option), we should move the
+      // view along with the cursor. Otherwise just move the cursor.
+      const moveFn = (
+        keyListener.isPressed(18)
+        ? (x, y) => this.moveViewAndCursor(x, y)
+        : (x, y) => this.moveCursor(x, y)
+      )
+
+      // Actually handle moving. This only runs when we push down an arrow key.
+      // (That is, you have to release the arrow keys before moving another
+      // tile.)
+      if (this.moveTileCursorDelayTicks === 0) {
+        if (keyListener.isPressed(39)) {
+          if (!this.didMoveTileCursor) moveFn(+amount, 0)
+          this.moveTileCursorDelayTicks = delay
+        } else if (keyListener.isPressed(38)) {
+          if (!this.didMoveTileCursor) moveFn(0, -amount)
+          this.moveTileCursorDelayTicks = delay
+        } else if (keyListener.isPressed(37)) {
+          if (!this.didMoveTileCursor) moveFn(-amount, 0)
+          this.moveTileCursorDelayTicks = delay
+        } else if (keyListener.isPressed(40)) {
+          if (!this.didMoveTileCursor) moveFn(0, +amount)
+          this.moveTileCursorDelayTicks = delay
+        } else {
+          this.moveTileCursorDelayTicks = 0
+        }
       } else {
-        this.moveTileCursorDelayTicks = 0
+        this.moveTileCursorDelayTicks--
       }
-    } else {
-      this.moveTileCursorDelayTicks--
     }
 
     // Constrain cursor to level ----------------------------------------------
@@ -236,6 +242,30 @@ class Levelmap {
       if (keyListener.isPressed(i + 48)) {
         this.hotbarSelectedIndex = i - 1
       }
+    }
+
+    // Wall placing -----------------------------------------------------------
+
+    if (keyListener.isPressed(87)) { // W
+      let wall = this.wallmap.getWallAt(this.cursorTileX, this.cursorTileY)
+
+      if (keyListener.isPressed(40)) {
+        if (this.editWallLastSide !== 'down') wall ^= 0b0010
+        this.editWallLastSide = 'down'
+      } else if (keyListener.isPressed(39)) {
+        if (this.editWallLastSide !== 'right') wall ^= 0b0100
+        this.editWallLastSide = 'right'
+      } else if (keyListener.isPressed(38)) {
+        if (this.editWallLastSide !== 'up') wall ^= 0b1000
+        this.editWallLastSide = 'up'
+      } else if (keyListener.isPressed(37)) {
+        if (this.editWallLastSide !== 'left') wall ^= 0b0001
+        this.editWallLastSide = 'left'
+      } else {
+        this.editWallLastSide = null
+      }
+
+      this.wallmap.setWallAt(this.cursorTileX, this.cursorTileY, wall)
     }
   }
 
