@@ -65,43 +65,33 @@ class Wallmap {
     const endParseY = constrainY(Math.ceil(scrollY + canvasHeight / tileSize))
 
     const ctx = canvasTarget.getContext('2d')
-    ctx.fillStyle = 'white'
+
+    ctx.fillStyle = `rgba(255, 255, 255, ${blink()})`
 
     for (let x = startParseX; x < endParseX; x++) {
       for (let y = startParseY; y < endParseY; y++) {
         const wall = this.getWallAt(x, y)
 
-        if ((wall & 0b0001) >> 0) {
-          ctx.fillRect(
-            Math.floor((x - scrollX) * tileSize),
-            Math.floor((y - scrollY) * tileSize),
-            4, tileSize
-          )
-        }
+        ctx.beginPath()
 
-        if ((wall & 0b0010) >> 1) {
-          ctx.fillRect(
-            Math.floor((x - scrollX) * tileSize),
-            Math.floor((y - scrollY) * tileSize + (tileSize - 4)),
-            tileSize, 4
-          )
-        }
+        const rx = (x - scrollX) * tileSize
+        const ry = (y - scrollY) * tileSize
 
-        if ((wall & 0b1000) >> 3) {
-          ctx.fillRect(
-            Math.floor((x - scrollX) * tileSize),
-            Math.floor((y - scrollY) * tileSize),
-            tileSize, 4
-          )
-        }
+        ctx.rect(rx, ry, tileSize, tileSize)
 
-        if ((wall & 0b0100) >> 2) {
-          ctx.fillRect(
-            Math.floor((x - scrollX) * tileSize + (tileSize - 4)),
-            Math.floor((y - scrollY) * tileSize),
-            4, tileSize
-          )
-        }
+        const top =    (wall & 0b1000) >> 3 ? 4 : 0
+        const right =  (wall & 0b0100) >> 2 ? 4 : 0
+        const bottom = (wall & 0b0010) >> 1 ? 4 : 0
+        const left =   (wall & 0b0001) >> 0 ? 4 : 0
+
+        ctx.rect(
+          rx + tileSize - right,
+          ry + top,
+          -(tileSize - (left + right)),
+          tileSize - (top + bottom)
+        )
+
+        ctx.fill()
       }
     }
   }

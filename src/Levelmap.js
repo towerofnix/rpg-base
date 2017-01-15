@@ -75,8 +75,7 @@ class Levelmap {
 
     const ctx = canvas.getContext('2d')
 
-    const blink = 0.75 + 0.25 * Math.sin(Date.now() / 200)
-    ctx.fillStyle = `rgba(255, 255, 255, ${blink})`
+    ctx.fillStyle = `rgba(255, 255, 255, ${blink()})`
 
     ctx.beginPath()
     ctx.rect(0, 0, this.tileSize, this.tileSize)

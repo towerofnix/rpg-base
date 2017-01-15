@@ -37,3 +37,9 @@ const filterOne = function(arr, fn) {
 
   return null
 }
+
+const blink = function() {
+  // Returns THE blink. Use for all blinking elements. Keeps things in sync.
+
+  return 0.75 + 0.25 * Math.sin(Date.now() / 200)
+}
