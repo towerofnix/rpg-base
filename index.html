@@ -27,6 +27,14 @@
         height: 256px;
 
         display: block;
+
+        image-rendering: pixelated;
+
+        outline: none;
+      }
+
+      #target:not(:focus) {
+        filter: blur(1px) saturate(0.3);
       }
     </style>
   </head>

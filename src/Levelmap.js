@@ -106,8 +106,11 @@ class Levelmap {
 
     this.activeEditMenu = this.editInfoMenu
 
-    this.tilemap = new Tilemap(this)
-    this.wallmap = new Wallmap(this)
+    this.layers = []
+    this.layers.push(this.createLayer())
+
+    this.selectedLayerIndex = -1
+
     this.entitymap = new Entitymap(this)
   }
 
@@ -121,9 +124,12 @@ class Levelmap {
           0, 0, this.editModeCanvas.width, this.editModeCanvas.height
         )
 
-        this.tilemap.drawTo(this.editModeCanvas)
+        for (let { tilemap, wallmap } of this.layers) {
+          tilemap.drawTo(this.editModeCanvas)
+          wallmap.drawTo(this.editModeCanvas)
+        }
+
         this.entitymap.drawTo(this.editModeCanvas)
-        this.wallmap.drawTo(this.editModeCanvas)
         this.drawTileCursorTo(this.editModeCanvas)
 
         const ctx = canvasTarget.getContext('2d')
@@ -132,7 +138,10 @@ class Levelmap {
         this.drawEditHotbarTo(canvasTarget)
       }
     } else {
-      this.tilemap.drawTo(canvasTarget)
+      for (let { tilemap } of this.layers) {
+        tilemap.drawTo(canvasTarget)
+      }
+
       this.entitymap.drawTo(canvasTarget)
     }
   }
@@ -342,7 +351,11 @@ class Levelmap {
 
     if (keyListener.isPressed(32)) { // Space
       const selectedID = this.hotbarTiles[this.hotbarSelectedIndex]
-      this.tilemap.setTileAt(this.cursorTileX, this.cursorTileY, selectedID)
+
+      this.selectedLayer.tilemap.setTileAt(
+        this.cursorTileX, this.cursorTileY,
+        selectedID
+      )
     }
 
     // Tile selecting ---------------------------------------------------------
@@ -361,7 +374,11 @@ class Levelmap {
     // Wall placing -----------------------------------------------------------
 
     if (keyListener.isPressed(87)) { // W
-      let wall = this.wallmap.getWallAt(this.cursorTileX, this.cursorTileY)
+      const { wallmap } = this.selectedLayer
+
+      let wall = wallmap.getWallAt(
+        this.cursorTileX, this.cursorTileY
+      )
 
       if (keyListener.isPressed(40)) {
         if (this.editWallLastSide !== 'down') wall ^= 0b0010
@@ -379,7 +396,7 @@ class Levelmap {
         this.editWallLastSide = null
       }
 
-      this.wallmap.setWallAt(this.cursorTileX, this.cursorTileY, wall)
+      wallmap.setWallAt(this.cursorTileX, this.cursorTileY, wall)
     }
 
     // Utility menu access
@@ -402,25 +419,46 @@ class Levelmap {
   }
 
   resize(newWidth, newHeight) {
-    const newTiles = []
-    const newWalls = []
+    for (let { tilemap, wallmap } of this.layers) {
+      const newTiles = []
+      const newWalls = []
 
-    for (let y = 0; y < newHeight; y++) {
-      for (let x = 0; x < newWidth; x++) {
-        if (x < this.width && y < this.height) {
-          newTiles.push(this.tilemap.getTileAt(x, y))
-          newWalls.push(this.wallmap.getWallAt(x, y))
-        } else {
-          newTiles.push(0x00)
-          newWalls.push(0b0000)
+      for (let y = 0; y < newHeight; y++) {
+        for (let x = 0; x < newWidth; x++) {
+          if (x < this.width && y < this.height) {
+            newTiles.push(tilemap.getTileAt(x, y))
+            newWalls.push(wallmap.getWallAt(x, y))
+          } else {
+            newTiles.push(0x00)
+            newWalls.push(0b0000)
+          }
         }
       }
+
+      tilemap.tiles = newTiles
+      wallmap.walls = newWalls
     }
 
     this.width = newWidth
     this.height = newHeight
+  }
 
-    this.tilemap.tiles = newTiles
-    this.wallmap.walls = newWalls
+  get selectedLayer() {
+    return this.getLayer(this.selectedLayerIndex)
+  }
+
+  getLayer(n) {
+    if (n >= 0) {
+      return this.layers[n]
+    } else {
+      return this.layers[this.layers.length + n]
+    }
+  }
+
+  createLayer() {
+    return {
+      tilemap: new Tilemap(this),
+      wallmap: new Wallmap(this)
+    }
   }
 }
