@@ -118,9 +118,13 @@ class Levelmap {
     this.scrollX = 0
     this.scrollY = 0
 
-    this.cursorTileX = 0
-    this.cursorTileY = 0
     this.tileCursor = new TileCursor(this.tileSize, this.game.keyListener)
+    this.tileCursor.on('viewmoved', evt => {
+      const [ x, y ] = evt.by
+
+      this.scrollX += x
+      this.scrollY += y
+    })
 
     this.editInfoMenu = new Menu(game, [
       {label: 'Resize Map..', action: () => {
