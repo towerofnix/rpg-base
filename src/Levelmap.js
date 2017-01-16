@@ -4,7 +4,7 @@ const Wallmap = require('./Wallmap')
 const Entitymap = require('./Entitymap')
 const { blink, makeKeyAction } = require('./util')
 
-module.exports = class Levelmap {
+class Levelmap {
   constructor(game, width, height, atlas, tileSize = 16) {
     this.game = game
     this.width = width
@@ -290,8 +290,6 @@ module.exports = class Levelmap {
     this.layers.push(this.createLayer())
 
     this.selectedLayerIndex = 0
-
-    this.entitymap = new Entitymap(this)
   }
 
   drawTo(canvasTarget) {
@@ -306,7 +304,7 @@ module.exports = class Levelmap {
           0, 0, this.editModeCanvas.width, this.editModeCanvas.height
         )
 
-        for (let { tilemap, wallmap } of this.layers) {
+        for (let { tilemap, wallmap, entitymap } of this.layers) {
           if (
             tilemap === this.selectedLayer.tilemap && this.jitterSelectedLayer
           ) {
@@ -315,14 +313,15 @@ module.exports = class Levelmap {
             canvas.height = canvasTarget.height
             tilemap.drawTo(canvas)
             wallmap.drawTo(canvas)
+            entitymap.drawTo(canvas)
             ectx.drawImage(canvas, Math.floor(Date.now() % 2), 0)
           } else {
             tilemap.drawTo(this.editModeCanvas)
             wallmap.drawTo(this.editModeCanvas)
+            entitymap.drawTo(this.editModeCanvas)
           }
         }
 
-        this.entitymap.drawTo(this.editModeCanvas)
         this.drawTileCursorTo(this.editModeCanvas)
 
         ctx.drawImage(this.editModeCanvas, 0, this.tileSize)
@@ -330,11 +329,10 @@ module.exports = class Levelmap {
         this.drawEditHotbarTo(canvasTarget)
       }
     } else {
-      for (let { tilemap } of this.layers) {
+      for (let { tilemap, entitymap } of this.layers) {
         tilemap.drawTo(canvasTarget)
+        entitymap.drawTo(canvasTarget)
       }
-
-      this.entitymap.drawTo(canvasTarget)
     }
   }
 
@@ -414,7 +412,9 @@ module.exports = class Levelmap {
   }
 
   gameTick() {
-    this.entitymap.tick()
+    for (let { entitymap } of this.layers) {
+      entitymap.tick()
+    }
   }
 
   editModeTick() {
@@ -615,6 +615,11 @@ module.exports = class Levelmap {
   }
 
   get selectedLayer() {
+    // Automagically constrain!
+    if (this.selectedLayerIndex > this.layers.length - 1) {
+      this.selectedLayerIndex = this.layers.length - 1
+    }
+
     return this.getLayer(this.selectedLayerIndex)
   }
 
@@ -629,7 +634,32 @@ module.exports = class Levelmap {
   createLayer() {
     return {
       tilemap: new Tilemap(this),
-      wallmap: new Wallmap(this)
+      wallmap: new Wallmap(this),
+      entitymap: new Entitymap(this)
     }
   }
+
+  getSaveObj() {
+    return {
+      width: this.width,
+      height: this.height,
+      layers: this.layers.map(layer => ({
+        tiles: layer.tilemap.tiles.slice(0),
+        walls: layer.wallmap.walls.slice(0)
+      }))
+    }
+  }
+
+  loadFromSaveObj(save) {
+    this.width = save.width
+    this.height = save.height
+    this.layers = save.layers.map(layerObj => {
+      const layer = this.createLayer()
+      layer.tilemap.tiles = layerObj.tiles.slice(0)
+      layer.wallmap.walls = layerObj.walls.slice(0)
+      return layer
+    })
+  }
 }
+
+module.exports = Levelmap
