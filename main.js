@@ -58,7 +58,22 @@ const setupMenubar = () => {
     {
       label: 'File', submenu: [
         {
-          label: 'Hello',
+          label: 'New Window',
+          accelerator: 'CommandOrControl+N',
+          click() {
+            createWindow()
+          }
+        }
+      ]
+    },
+    {
+      role: 'window',
+      submenu: [
+        {
+          role: 'minimize'
+        },
+        {
+          role: 'close'
         }
       ]
     }
