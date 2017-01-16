@@ -29,11 +29,7 @@ const createWindow = () => {
     windows.splice(windows.indexOf(win), 1)
   })
 
-  win.on('resize', () => {
-    const [ w, h ] = win.getContentSize()
-
-    win.setAspectRatio(1)
-  })
+  win.setAspectRatio(1)
 
   windows.push(win)
 }
