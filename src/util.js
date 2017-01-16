@@ -43,3 +43,25 @@ module.exports.blink = function() {
 
   return 0.75 + 0.25 * Math.sin(Date.now() / 200)
 }
+
+module.exports.makeKeyAction = function(keyListener, combo, action) {
+  // Makes a key action. Run the return function every tick. If the key combo
+  // you passed has just been completed, it'll run the action you passed.
+  //
+  // Probably put the result of calling this in an array on your object, then
+  // run it every tick.
+
+  let pressed = false
+
+  return function tick() {
+    if (combo.map(x => keyListener.isPressed(x)).every(x => x === true)) {
+      if (!pressed) {
+        action()
+      }
+
+      pressed = true
+    } else {
+      pressed = false
+    }
+  }
+}

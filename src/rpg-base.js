@@ -24,6 +24,7 @@ waitUntilLoaded(atlasImage).then(() => {
   canvasTarget.height = 256
 
   game = new Game(canvasTarget)
+  window.game = game
 
   game.levelmap.width = 11
   game.levelmap.height = 5
@@ -48,7 +49,7 @@ waitUntilLoaded(atlasImage).then(() => {
   ]
 
   newLayer.wallmap.walls = [
-    0b0000, 0b0000, 0b0000, 0b0000, 0b0011, 0b0010, 0b0010, 0b0010, 0b0110, 0b0000, 0b0000,
+    0b0110, 0b0000, 0b0000, 0b0000, 0b0011, 0b0010, 0b0010, 0b0010, 0b0110, 0b0000, 0b0000,
     0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000,
     0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000,
     0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b1001,

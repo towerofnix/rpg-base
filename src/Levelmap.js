@@ -2,7 +2,7 @@ const Menu = require('./Menu')
 const Tilemap = require('./Tilemap')
 const Wallmap = require('./Wallmap')
 const Entitymap = require('./Entitymap')
-const { blink } = require('./util')
+const { blink, makeKeyAction } = require('./util')
 
 module.exports = class Levelmap {
   constructor(game, width, height, atlas, tileSize = 16) {
@@ -21,6 +21,62 @@ module.exports = class Levelmap {
     this.editModeCanvas.width = game.canvasTarget.width
     this.editModeCanvas.height = game.canvasTarget.height - this.tileSize
 
+    // If this is enabled, in edit mode, the selected layer will shake so that
+    // it's easier to see it's the selected layer.
+    this.jitterSelectedLayer = true
+
+    this.editorKeyActions = [
+      makeKeyAction(game.keyListener, [17, 74], () => {
+        // ^J toggles jitter.
+
+        this.jitterSelectedLayer = !this.jitterSelectedLayer
+      }),
+
+      makeKeyAction(game.keyListener, [27], () => {
+        // ESC opens the level info/utility menu.
+
+        this.activeEditMenu = this.editInfoMenu
+      }),
+
+      makeKeyAction(game.keyListener, [87, 40], () => { // W+Down
+        this.wallPressed(0b0010)
+      }),
+
+      makeKeyAction(game.keyListener, [87, 39], () => { // W+Right
+        this.wallPressed(0b0100)
+      }),
+
+      makeKeyAction(game.keyListener, [87, 38], () => { // W+Up
+        this.wallPressed(0b1000)
+      }),
+
+      makeKeyAction(game.keyListener, [87, 37], () => { // W+Left
+        this.wallPressed(0b0001)
+      })
+    ]
+
+    // Tile selecting keys, 1-9.
+    //
+    // The key code for (number n) is (n + 48). Handy!
+    //
+    // Since JS indexes start at 0 but the hotbar keys start at 1, we also
+    // need to subtract one from the key index.
+    for (let i = 1; i <= 9; i++) {
+      this.editorKeyActions.push(
+        makeKeyAction(game.keyListener, [i + 48], () => {
+          this.hotbarSelectedIndex = i - 1
+        })
+      )
+    }
+
+    this.editModeKeyActions = [
+      makeKeyAction(game.keyListener, [17, 84], () => {
+        // ^T toggles test mode.
+
+        this.testMode = !this.testMode
+      })
+    ]
+
     this.hotbarTiles = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
     this.hotbarSelectedIndex = 0
 
@@ -30,9 +86,6 @@ module.exports = class Levelmap {
     this.cursorTileX = 0
     this.cursorTileY = 0
     this.moveTileCursorDelayTicks = 6
-
-    this.editWallLastSide = null
-    this.didToggleEditMode = false
 
     this.editInfoMenu = new Menu(game, [
       {label: 'Resize map..', action: () => {
@@ -125,20 +178,32 @@ module.exports = class Levelmap {
       if (this.activeEditMenu) {
         this.activeEditMenu.drawTo(canvasTarget)
       } else {
+        const ctx = canvasTarget.getContext('2d')
+
         const ectx = this.editModeCanvas.getContext('2d')
         ectx.clearRect(
           0, 0, this.editModeCanvas.width, this.editModeCanvas.height
         )
 
         for (let { tilemap, wallmap } of this.layers) {
-          tilemap.drawTo(this.editModeCanvas)
-          wallmap.drawTo(this.editModeCanvas)
+          if (
+            tilemap === this.selectedLayer.tilemap && this.jitterSelectedLayer
+          ) {
+            const canvas = document.createElement('canvas')
+            canvas.width = canvasTarget.width
+            canvas.height = canvasTarget.height
+            tilemap.drawTo(canvas)
+            wallmap.drawTo(canvas)
+            ectx.drawImage(canvas, Math.floor(Date.now() % 2), 0)
+          } else {
+            tilemap.drawTo(this.editModeCanvas)
+            wallmap.drawTo(this.editModeCanvas)
+          }
         }
 
         this.entitymap.drawTo(this.editModeCanvas)
         this.drawTileCursorTo(this.editModeCanvas)
 
-        const ctx = canvasTarget.getContext('2d')
         ctx.drawImage(this.editModeCanvas, 0, this.tileSize)
 
         this.drawEditHotbarTo(canvasTarget)
@@ -244,17 +309,8 @@ module.exports = class Levelmap {
       }
     }
 
-    // Test mode --------------------------------------------------------------
-
-    if (keyListener.isPressed(17) && keyListener.isPressed(84)) { // ^T
-      if (!this.didToggleEditMode) {
-        this.testMode = !this.testMode
-      }
-
-      this.didToggleEditMode = true
-    } else {
-      this.didToggleEditMode = false
-    }
+    // Tick edit mode key actions.
+    for (let tick of this.editModeKeyActions) tick()
   }
 
   editorTick() {
@@ -364,52 +420,23 @@ module.exports = class Levelmap {
       )
     }
 
-    // Tile selecting ---------------------------------------------------------
+    // Tick editor key actions.
+    for (let tick of this.editorKeyActions) tick()
+  }
 
-    // The key code for (number n) is (n + 48). Handy!
-    //
-    // Since JS indexes start at 0 but the hotbar keys start at 1, we also
-    // need to subtract one from the key index.
+  wallPressed(wallFlag) {
+    // Ran when a wall combo key is pressed (W+arrow). Toggles the edge of the
+    // wall under the tile cursor.
 
-    for (let i = 1; i <= 9; i++) {
-      if (keyListener.isPressed(i + 48)) {
-        this.hotbarSelectedIndex = i - 1
-      }
-    }
+    // We don't want anything to happen if there's a menu open..
+    if (this.activeEditMenu) return
 
-    // Wall placing -----------------------------------------------------------
+    const { wallmap } = this.selectedLayer
+    
+    const wall = wallmap.getWallAt(this.cursorTileX, this.cursorTileY)
+    const newWall = wall ^ wallFlag
 
-    if (keyListener.isPressed(87)) { // W
-      const { wallmap } = this.selectedLayer
-
-      let wall = wallmap.getWallAt(
-        this.cursorTileX, this.cursorTileY
-      )
-
-      if (keyListener.isPressed(40)) {
-        if (this.editWallLastSide !== 'down') wall ^= 0b0010
-        this.editWallLastSide = 'down'
-      } else if (keyListener.isPressed(39)) {
-        if (this.editWallLastSide !== 'right') wall ^= 0b0100
-        this.editWallLastSide = 'right'
-      } else if (keyListener.isPressed(38)) {
-        if (this.editWallLastSide !== 'up') wall ^= 0b1000
-        this.editWallLastSide = 'up'
-      } else if (keyListener.isPressed(37)) {
-        if (this.editWallLastSide !== 'left') wall ^= 0b0001
-        this.editWallLastSide = 'left'
-      } else {
-        this.editWallLastSide = null
-      }
-
-      wallmap.setWallAt(this.cursorTileX, this.cursorTileY, wall)
-    }
-
-    // Utility menu access
-
-    if (keyListener.isJustPressed(27)) {
-      this.activeEditMenu = this.editInfoMenu
-    }
+    wallmap.setWallAt(this.cursorTileX, this.cursorTileY, newWall)
   }
 
   moveCursor(x, y) {
