@@ -494,20 +494,20 @@ class Levelmap {
     // The view will follow the tile cursor when the cursor moves out of the
     // view's edges.
 
-    if (this.tileCursor.y - this.scrollX >= canvasWidth) {
-      this.scrollX = this.tileCursor.y - canvasWidth + 1
+    if (this.tileCursor.x - this.scrollX >= canvasWidth) {
+      this.scrollX = this.tileCursor.x - canvasWidth + 1
     }
 
-    if (this.tileCursor.y - this.scrollX <= 0) {
-      this.scrollX = this.tileCursor.y
+    if (this.tileCursor.x - this.scrollX <= 0) {
+      this.scrollX = this.tileCursor.x
     }
 
-    if (this.tileCursor.x - this.scrollY >= canvasHeight) {
-      this.scrollY = this.tileCursor.x - canvasHeight + 1
+    if (this.tileCursor.y - this.scrollY >= canvasHeight) {
+      this.scrollY = this.tileCursor.y - canvasHeight + 1
     }
 
-    if (this.tileCursor.x - this.scrollY <= 0) {
-      this.scrollY = this.tileCursor.x
+    if (this.tileCursor.y - this.scrollY <= 0) {
+      this.scrollY = this.tileCursor.y
     }
 
     // Tile placing -----------------------------------------------------------
