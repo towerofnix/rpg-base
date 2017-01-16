@@ -5,6 +5,7 @@ const Entitymap = require('./Entitymap')
 const AtlasTilePicker = require('./AtlasTilePicker')
 const { makeKeyAction } = require('./util')
 const TileCursor = require('./TileCursor')
+const InfoDialog = require('./InfoDialog')
 
 class Levelmap {
   constructor(game, width, height, atlas, tileSize = 16) {
@@ -311,6 +312,7 @@ class Levelmap {
     ])
 
     this.activeEditDialog = this.editInfoMenu
+    this.editInfoDialog = new InfoDialog()
 
     this.layers = []
     this.layers.push(this.createLayer())
@@ -349,6 +351,13 @@ class Levelmap {
         }
 
         this.drawTileCursorTo(this.editModeCanvas)
+
+        // Info dialog
+        const infoDialogCanvas = document.createElement('canvas')
+        infoDialogCanvas.width = canvasTarget.width
+        infoDialogCanvas.height = 24
+        this.editInfoDialog.drawTo(infoDialogCanvas)
+        ectx.drawImage(infoDialogCanvas, 0, 0)
 
         ctx.drawImage(this.editModeCanvas, 0, this.tileSize)
 
@@ -568,6 +577,8 @@ class Levelmap {
       this.selectedLayerIndex = this.layers.length
       this.setLayerIndex(this.layers.length + n)
     }
+
+    this.editInfoDialog.timerText(`Current layer: ${this.selectedLayerIndex}`)
   }
 
   resize(newWidth, newHeight) {
