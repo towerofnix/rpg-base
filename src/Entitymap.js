@@ -1,4 +1,4 @@
-class Entitymap {
+module.exports = class Entitymap {
   constructor(levelmap, entityData = []) {
     this.levelmap = levelmap
     this.entities = []

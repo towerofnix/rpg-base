@@ -1,4 +1,6 @@
-class HeroEntity extends Entity {
+const Entity = require('../Entity')
+
+module.exports = class HeroEntity extends Entity {
   tick() {
     const { keyListener } = this.levelmap.game
 

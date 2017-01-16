@@ -1,4 +1,6 @@
-class Tilemap {
+const { joinPosToIndex } = require('./util')
+
+module.exports = class Tilemap {
   constructor(levelmap) {
     this.levelmap = levelmap
 

@@ -1,4 +1,4 @@
-class Menu {
+module.exports = class Menu {
   constructor(game, items) {
     this.game = game
     this.items = items

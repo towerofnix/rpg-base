@@ -1,4 +1,10 @@
-class Levelmap {
+const Menu = require('./Menu')
+const Tilemap = require('./Tilemap')
+const Wallmap = require('./Wallmap')
+const Entitymap = require('./Entitymap')
+const { blink } = require('./util')
+
+module.exports = class Levelmap {
   constructor(game, width, height, atlas, tileSize = 16) {
     this.game = game
     this.width = width
@@ -196,7 +202,7 @@ class Levelmap {
       ctx.drawImage(
         this.tileAtlas.image,
 
-        ...tileAtlas.getTexturePos(hotbarID),
+        ...this.tileAtlas.getTexturePos(hotbarID),
         this.tileAtlas.textureSize, this.tileAtlas.textureSize,
 
         Math.floor(i * this.tileSize), 0,

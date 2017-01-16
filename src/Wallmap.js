@@ -1,4 +1,6 @@
-class Wallmap {
+const { blink, joinPosToIndex } = require('./util')
+
+module.exports = class Wallmap {
   // Stores the walls (tile solidity) of a level.
 
   constructor(levelmap) {

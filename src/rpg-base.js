@@ -1,43 +1,24 @@
+const TileAtlas = require('./TileAtlas')
+const Game = require('./Game')
+const { filterOne } = require('./util')
+
+const HeroEntity = require('./entities/HeroEntity')
+
 const waitUntilLoaded = function(obj) {
   return new Promise((resolve) => {
     obj.addEventListener('load', () => resolve(obj))
   })
 }
 
-const dep = p => {
-  const script = document.createElement('script')
-  script.src = p
-  document.body.appendChild(script)
-  return waitUntilLoaded(script)
-}
-
 let tileAtlas
 let game
 
-Promise.all([
-  dep('src/util.js'),
-  dep('src/KeyListener.js'),
-  dep('src/TileAtlas.js'),
+const atlasImage = new Image()
+atlasImage.src = './game/atlas.png'
 
-  dep('src/Menu.js'),
+tileAtlas = new TileAtlas(atlasImage, 16)
 
-  dep('src/Game.js'),
-
-  dep('src/Entity.js')
-    .then(() => dep('src/entities/HeroEntity.js')),
-
-  dep('src/Entitymap.js'),
-  dep('src/Tilemap.js'),
-  dep('src/Wallmap.js'),
-  dep('src/Levelmap.js')
-]).then(() => {
-  const atlasImage = new Image()
-  atlasImage.src = './game/atlas.png'
-
-  tileAtlas = new TileAtlas(atlasImage, 16)
-
-  return waitUntilLoaded(atlasImage)
-}).then(() => {
+waitUntilLoaded(atlasImage).then(() => {
   const canvasTarget = document.getElementById('target')
   canvasTarget.width = 256
   canvasTarget.height = 256

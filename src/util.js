@@ -1,4 +1,4 @@
-const splitIndexToPos = function(i, w, h, s = 1) {
+module.exports.splitIndexToPos = function(i, w, h, s = 1) {
   // Takes four arguments:
   //
   // (i) The index to split.
@@ -13,7 +13,7 @@ const splitIndexToPos = function(i, w, h, s = 1) {
   return [x, y]
 }
 
-const joinPosToIndex = function([x, y], w, s = 1) {
+module.exports.joinPosToIndex = function([x, y], w, s = 1) {
   // Takes three arguments:
   //
   // (x/y) The X and Y of the split index/position. An array.
@@ -25,7 +25,7 @@ const joinPosToIndex = function([x, y], w, s = 1) {
   return i
 }
 
-const filterOne = function(arr, fn) {
+module.exports.filterOne = function(arr, fn) {
   // Like normal array filter, except it only returns the first match. Returns
   // null if no items match.
 
@@ -38,7 +38,7 @@ const filterOne = function(arr, fn) {
   return null
 }
 
-const blink = function() {
+module.exports.blink = function() {
   // Returns THE blink. Use for all blinking elements. Keeps things in sync.
 
   return 0.75 + 0.25 * Math.sin(Date.now() / 200)

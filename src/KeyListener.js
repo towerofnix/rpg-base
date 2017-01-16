@@ -1,4 +1,4 @@
-class KeyListener {
+module.exports = class KeyListener {
   // A convenient class to get pressed keys.
 
   constructor(el) {
