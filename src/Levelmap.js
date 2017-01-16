@@ -52,6 +52,14 @@ module.exports = class Levelmap {
 
       makeKeyAction(game.keyListener, [87, 37], () => { // W+Left
         this.wallPressed(0b0001)
+      }),
+
+      makeKeyAction(game.keyListener, [219], () => { // [
+        this.setLayerIndex(this.selectedLayerIndex - 1)
+      }),
+
+      makeKeyAction(game.keyListener, [221], () => { // ]
+        this.setLayerIndex(this.selectedLayerIndex + 1)
       })
     ]
 
@@ -88,12 +96,12 @@ module.exports = class Levelmap {
     this.moveTileCursorDelayTicks = 6
 
     this.editInfoMenu = new Menu(game, [
-      {label: 'Resize map..', action: () => {
+      {label: 'Resize Map..', action: () => {
         let newWidth = this.width
         let newHeight = this.height
 
         const updateWidthLabel = () => {
-          widthMenuItem.label = 'Width: '  + newWidth
+          widthMenuItem.label = 'Width: ' + newWidth
         }
 
         const widthMenuItem = {
@@ -119,7 +127,7 @@ module.exports = class Levelmap {
         }
 
         const updateHeightLabel = () => {
-          heightMenuItem.label  ='Height: ' + newHeight
+          heightMenuItem.label = 'Height: ' + newHeight
         }
 
         const heightMenuItem = {
@@ -158,7 +166,120 @@ module.exports = class Levelmap {
           }}
         ])
       }},
-      {label: 'Edit map..', action: () => {
+      {label: 'Edit Layers..', action: () => {
+        let menu
+
+        const newLayers = this.layers.slice(0)
+
+        const confirmMenuItem = {label: 'Confirm', action: () => {
+          // const fn = l => l.tilemap.tiles
+          // console.log(this.layers.map(fn))
+          // console.log(newLayers.map(fn))
+
+          this.layers = newLayers
+          this.activeEditMenu = this.editInfoMenu
+        }}
+
+        const cancelMenuItem = {label: 'Cancel', action: () => {
+          this.activeEditMenu = this.editInfoMenu
+        }}
+
+        const moveDownLayer = (i) => {
+          // We can't move the bottom layer down..
+          if (i === 0) return
+
+          const layer = newLayers.splice(i, 1)[0]
+          newLayers.splice(i - 1, 0, layer)
+
+          const oldIndex = menu.selectedIndex
+          setupMenu()
+          menu.selectedIndex = oldIndex - 3
+        }
+
+        const moveUpLayer = (i) => {
+          // We can't move the top layer up..
+          if (i === newLayers.length - 1) return
+
+          const layer = newLayers.splice(i, 1)[0]
+          newLayers.splice(i + 1, 0, layer)
+
+          const oldIndex = menu.selectedIndex
+          setupMenu()
+          menu.selectedIndex = oldIndex + 3
+        }
+
+        const deleteLayer = (i) => {
+          // We can't delete *all* the layers..
+          if (newLayers.length === 1) return
+
+          newLayers.splice(i, 1)
+
+          // Since we're pulling everything up we don't need to move the
+          // cursor.
+          const oldIndex = menu.selectedIndex
+          setupMenu()
+          menu.selectedIndex = oldIndex
+        }
+
+        const addLayerAbove = (i) => {
+          newLayers.splice(i - 1, 0, this.createLayer())
+
+          // Since we're pushing everything down we don't need to move the
+          // cursor.
+          const oldIndex = menu.selectedIndex
+          setupMenu()
+          menu.selectedIndex = oldIndex
+        }
+
+        const createLayerMenuItems = () => {
+
+          const layerMenuItems = []
+
+          for (let i = 0; i < newLayers.length; i++) {
+            const layer = newLayers[i]
+
+            layerMenuItems.push({
+              label: `Layer ${i} (old: ${this.layers.indexOf(layer)})`,
+              action: () => {
+                menu.selectedIndex += 1
+                menu.constraints()
+              },
+              keyAction: (key) => {
+                // Moving layers use the same keys as going up/down layers in
+                // the main level editor.
+                if (key === 221) { // ]
+                  moveDownLayer(i)
+                } else if (key === 219) { // [
+                  moveUpLayer(i)
+                } else if (key === 189) { // -
+                  deleteLayer(i)
+                } else if (key === 187) { // +
+                  addLayerAbove(i)
+                }
+              }
+            })
+            layerMenuItems.push({label: '  Move Down', action: () => {
+              moveDownLayer(i)
+            }})
+            layerMenuItems.push({label: '  Move Up', action: () => {
+              moveUpLayer(i)
+            }})
+          }
+
+          return layerMenuItems
+        }
+
+        const setupMenu = () => {
+          menu = this.activeEditMenu = new Menu(game, [
+            ...createLayerMenuItems(),
+            {label: '------------------', selectable: false},
+            confirmMenuItem, cancelMenuItem
+          ])
+        }
+
+        setupMenu()
+      }},
+      {label: 'Edit Map..', action: () => {
         this.activeEditMenu = null
       }}
     ])
@@ -168,7 +289,7 @@ module.exports = class Levelmap {
     this.layers = []
     this.layers.push(this.createLayer())
 
-    this.selectedLayerIndex = -1
+    this.selectedLayerIndex = 0
 
     this.entitymap = new Entitymap(this)
   }
@@ -425,8 +546,8 @@ module.exports = class Levelmap {
   }
 
   wallPressed(wallFlag) {
-    // Ran when a wall combo key is pressed (W+arrow). Toggles the edge of the
-    // wall under the tile cursor.
+    // Called when a wall combo key is pressed (W+arrow). Toggles the edge of
+    // the wall under the tile cursor.
 
     // We don't want anything to happen if there's a menu open..
     if (this.activeEditMenu) return
@@ -437,6 +558,23 @@ module.exports = class Levelmap {
     const newWall = wall ^ wallFlag
 
     wallmap.setWallAt(this.cursorTileX, this.cursorTileY, newWall)
+  }
+
+  setLayerIndex(n) {
+    // Called when a change layer key is pressed (square brackets). Changes the
+    // selected layer index.
+
+    this.selectedLayerIndex = n
+
+    if (this.selectedLayerIndex > this.layers.length - 1) {
+      this.selectedLayerIndex = 0
+      this.setLayerIndex(n - this.layers.length)
+    }
+
+    if (this.selectedLayerIndex < 0) {
+      this.selectedLayerIndex = this.layers.length
+      this.setLayerIndex(this.layers.length + n)
+    }
   }
 
   moveCursor(x, y) {

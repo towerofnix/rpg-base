@@ -3,10 +3,12 @@ module.exports = class Menu {
     this.game = game
     this.items = items
 
-    this.selectedIndex = 0
     this.blink = 0
     this.selectDelay = 0
     this.firstKeypress = 0
+
+    this.selectedIndex = 0
+    this.constraints(+1)
   }
 
   drawTo(canvasTarget) {
@@ -20,7 +22,7 @@ module.exports = class Menu {
     ctx.font = '14px manaspace'
 
     for (let i = 0; i < this.items.length; i++) {
-      const { label } = this.items[i]
+      const { label, selectable = true } = this.items[i]
 
       if (i === this.selectedIndex) {
         if (this.blink < 3) {
@@ -29,7 +31,11 @@ module.exports = class Menu {
           ctx.fillStyle = 'white'
         }
       } else {
-        ctx.fillStyle = '#BBB'
+        if (selectable) {
+          ctx.fillStyle = '#BBB'
+        } else {
+          ctx.fillStyle = '#777'
+        }
       }
 
       ctx.fillText(label, 8, (i + 1) * 14 + 8)
@@ -43,17 +49,21 @@ module.exports = class Menu {
 
     const delay = this.firstKeypress ? 10 : 5
 
+    let direction = 0
+
     if (keyListener.isPressed(38)) { // Up
       if (this.selectDelay === 0) {
         this.selectedIndex--
         this.selectDelay = delay
         this.firstKeypress = false
+        direction = -1
       }
     } else if (keyListener.isPressed(40)) { // Down
       if (this.selectDelay === 0) {
         this.selectedIndex++
         this.selectDelay = delay
         this.firstKeypress = false
+        direction = +1
       }
     } else {
       this.selectDelay = 0
@@ -64,16 +74,7 @@ module.exports = class Menu {
       this.selectDelay--
     }
 
-    // Keep the selected index in range by wrapping it if it goes past the
-    // ends.
-
-    if (this.selectedIndex < 0) {
-      this.selectedIndex = this.items.length - 1
-    }
-
-    if (this.selectedIndex > this.items.length - 1) {
-      this.selectedIndex = 0
-    }
+    this.constraints(direction)
 
     // If the space or enter key is pressed, run the selected menu item's
     // action.
@@ -94,5 +95,27 @@ module.exports = class Menu {
         }
       }
     }
+  }
+
+  constraints(direction) {
+    // Keep the selected index in range by wrapping it if it goes past the
+    // ends.
+
+    if (this.selectedIndex < 0) {
+      this.selectedIndex = this.items.length - 1
+    }
+
+    if (this.selectedIndex > this.items.length - 1) {
+      this.selectedIndex = 0
+    }
+
+    if (this.selectedItem.selectable === false && direction) {
+      this.selectedIndex += direction
+      this.constraints(direction)
+    }
+  }
+
+  get selectedItem() {
+    return this.items[this.selectedIndex]
   }
 }
