@@ -1,4 +1,5 @@
-const { blink, joinPosToIndex } = require('./util')
+const { joinPosToIndex } = require('./util')
+const { blink } = require('./draw-util')
 
 module.exports = class Wallmap {
   // Stores the walls (tile solidity) of a level.

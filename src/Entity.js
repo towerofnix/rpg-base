@@ -3,7 +3,6 @@ module.exports = class Entity {
     this.levelmap = levelmap
     this.x = 0
     this.y = 0
-    this.layer = -1 // The entity should usually be on the top layer.
   }
 
   tick() {}
@@ -18,9 +17,16 @@ module.exports = class Entity {
   }
 
   getAllowedMovement() {
-    const layer = this.levelmap.getLayer(this.layer)
-    const movement = layer.wallmap.getAllowedMovement(this.x, this.y)
+    const layer = this.levelmap.layers.filter(l => {
+      return l.entitymap.entities.includes(this)
+    })[0]
 
-    return movement
+    if (layer) {
+      const movement = layer.wallmap.getAllowedMovement(this.x, this.y)
+
+      return movement
+    } else {
+      return {left: false, right: false, up: false, down: false}
+    }
   }
 }

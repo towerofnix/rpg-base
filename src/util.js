@@ -1,9 +1,8 @@
-module.exports.splitIndexToPos = function(i, w, h, s = 1) {
-  // Takes four arguments:
+module.exports.splitIndexToPos = function(i, w, s = 1) {
+  // Takes three arguments:
   //
   // (i) The index to split.
   // (w) The width of the image/level you'd split this from.
-  // (h) The height of the image/level you'd split this from.
   // (s) The size of each tile in the image/level you'd split this from.
   //     Default 1.
 
@@ -36,12 +35,6 @@ module.exports.filterOne = function(arr, fn) {
   }
 
   return null
-}
-
-module.exports.blink = function() {
-  // Returns THE blink. Use for all blinking elements. Keeps things in sync.
-
-  return 0.75 + 0.25 * Math.sin(Date.now() / 200)
 }
 
 module.exports.makeKeyAction = function(keyListener, combo, action) {

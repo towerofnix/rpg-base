@@ -1,5 +1,9 @@
-module.exports = class Menu {
+const Dialog = require('./Dialog')
+
+module.exports = class Menu extends Dialog {
   constructor(game, items) {
+    super()
+
     this.game = game
     this.items = items
 

@@ -2,7 +2,9 @@ const Menu = require('./Menu')
 const Tilemap = require('./Tilemap')
 const Wallmap = require('./Wallmap')
 const Entitymap = require('./Entitymap')
-const { blink, makeKeyAction } = require('./util')
+const AtlasTilePicker = require('./AtlasTilePicker')
+const { makeKeyAction } = require('./util')
+const TileCursor = require('./TileCursor')
 
 class Levelmap {
   constructor(game, width, height, atlas, tileSize = 16) {
@@ -21,6 +23,8 @@ class Levelmap {
     this.editModeCanvas.width = game.canvasTarget.width
     this.editModeCanvas.height = game.canvasTarget.height - this.tileSize
 
+    this.editIsPlacingTiles = false
+
     // If this is enabled, in edit mode, the selected layer will shake so that
     // it's easier to see it's the selected layer.
     this.jitterSelectedLayer = true
@@ -35,7 +39,7 @@ class Levelmap {
       makeKeyAction(game.keyListener, [27], () => {
         // ESC opens the level info/utility menu.
 
-        this.activeEditMenu = this.editInfoMenu
+        this.activeEditDialog = this.editInfoMenu
       }),
 
       makeKeyAction(game.keyListener, [87, 40], () => { // W+Down
@@ -73,6 +77,28 @@ class Levelmap {
       this.editorKeyActions.push(
         makeKeyAction(game.keyListener, [i + 48], () => {
           this.hotbarSelectedIndex = i - 1
+        }),
+        makeKeyAction(game.keyListener, [i + 48, 16], () => { // Shift+N
+          this.hotbarSelectedIndex = i - 1
+
+          const picker = new AtlasTilePicker(
+            this.tileAtlas,
+            this.game.keyListener
+          )
+
+          const [ x, y ] = this.tileAtlas.getTexturePos(
+            this.hotbarTiles[i - 1]
+          ).map(n => n / this.tileAtlas.textureSize)
+
+          picker.tileCursor.x = x
+          picker.tileCursor.y = y
+
+          picker.on('selected', id => {
+            this.activeEditDialog = null
+            this.hotbarTiles[i - 1] = id
+          })
+
+          this.activeEditDialog = picker
         })
       )
     }
@@ -93,7 +119,7 @@ class Levelmap {
 
     this.cursorTileX = 0
     this.cursorTileY = 0
-    this.moveTileCursorDelayTicks = 6
+    this.tileCursor = new TileCursor(this.tileSize, this.game.keyListener)
 
     this.editInfoMenu = new Menu(game, [
       {label: 'Resize Map..', action: () => {
@@ -155,14 +181,14 @@ class Levelmap {
         updateWidthLabel()
         updateHeightLabel()
 
-        this.activeEditMenu = new Menu(game, [
+        this.activeEditDialog = new Menu(game, [
           widthMenuItem, heightMenuItem,
           {label: 'Confirm', action: () => {
             this.resize(newWidth, newHeight)
-            this.activeEditMenu = this.editInfoMenu
+            this.activeEditDialog = this.editInfoMenu
           }},
           {label: 'Cancel', action: () => {
-            this.activeEditMenu = this.editInfoMenu
+            this.activeEditDialog = this.editInfoMenu
           }}
         ])
       }},
@@ -177,11 +203,11 @@ class Levelmap {
           // console.log(newLayers.map(fn))
 
           this.layers = newLayers
-          this.activeEditMenu = this.editInfoMenu
+          this.activeEditDialog = this.editInfoMenu
         }}
 
         const cancelMenuItem = {label: 'Cancel', action: () => {
-          this.activeEditMenu = this.editInfoMenu
+          this.activeEditDialog = this.editInfoMenu
         }}
 
         const moveDownLayer = (i) => {
@@ -270,7 +296,7 @@ class Levelmap {
         }
 
         const setupMenu = () => {
-          menu = this.activeEditMenu = new Menu(game, [
+          menu = this.activeEditDialog = new Menu(game, [
             ...createLayerMenuItems(),
             {label: '------------------', selectable: false},
             confirmMenuItem, cancelMenuItem
@@ -280,11 +306,11 @@ class Levelmap {
         setupMenu()
       }},
       {label: 'Edit Map..', action: () => {
-        this.activeEditMenu = null
+        this.activeEditDialog = null
       }}
     ])
 
-    this.activeEditMenu = this.editInfoMenu
+    this.activeEditDialog = this.editInfoMenu
 
     this.layers = []
     this.layers.push(this.createLayer())
@@ -294,8 +320,8 @@ class Levelmap {
 
   drawTo(canvasTarget) {
     if (this.editMode && !this.testMode) {
-      if (this.activeEditMenu) {
-        this.activeEditMenu.drawTo(canvasTarget)
+      if (this.activeEditDialog) {
+        this.activeEditDialog.drawTo(canvasTarget)
       } else {
         const ctx = canvasTarget.getContext('2d')
 
@@ -337,40 +363,16 @@ class Levelmap {
   }
 
   drawTileCursorTo(canvasTarget) {
-    const tileX = Math.floor((this.cursorTileX - this.scrollX) * this.tileSize)
-    const tileY = Math.floor((this.cursorTileY - this.scrollY) * this.tileSize)
-
-    const ctx = canvasTarget.getContext('2d')
-
-    ctx.drawImage(this.drawNewTileCursor(), tileX, tileY)
-  }
-
-  drawNewTileCursor() {
-    // Draws a totally new tile cursor onto a new canvas. Probably not very
-    // efficient, since it has to create a new <canvas> element every time it's
-    // called..
-
-    const canvas = document.createElement('canvas')
-    canvas.width = this.tileSize
-    canvas.height = this.tileSize
-
-    const ctx = canvas.getContext('2d')
-
-    ctx.fillStyle = `rgba(255, 255, 255, ${blink()})`
-
-    ctx.beginPath()
-    ctx.rect(0, 0, this.tileSize, this.tileSize)
-
-    // This is a "counter-clockwise" rectangle, it cuts out of the cursor
-    // rectangle.
-    ctx.rect(
-      this.tileSize - 2, 2,
-      -this.tileSize + 4, this.tileSize - 4
+    const tileX = Math.floor(
+      (this.tileCursor.x - this.scrollX) * this.tileSize
     )
 
-    ctx.fill()
+    const tileY = Math.floor(
+      (this.tileCursor.y - this.scrollY) * this.tileSize
+    )
 
-    return canvas
+    const ctx = canvasTarget.getContext('2d')
+    ctx.drawImage(this.tileCursor.drawNew(), tileX, tileY)
   }
 
   drawEditHotbarTo(canvasTarget) {
@@ -395,7 +397,10 @@ class Levelmap {
     }
 
     // Draw a tile cursor over the selected tile.
-    ctx.drawImage(this.drawNewTileCursor(), this.hotbarSelectedIndex * this.tileSize, 0)
+    ctx.drawImage(
+      this.tileCursor.drawNew(),
+      this.hotbarSelectedIndex * this.tileSize, 0
+    )
 
     // Separator bar. It makes it clear that the tile picker isn't part of the
     // world map.
@@ -423,8 +428,12 @@ class Levelmap {
     if (this.testMode) {
       this.gameTick()
     } else {
-      if (this.activeEditMenu) {
-        this.activeEditMenu.tick()
+      if (this.activeEditDialog) {
+        this.activeEditDialog.tick()
+
+        // A drag from placing tiles should be stopped when the editor isn't
+        // "active" anymore.
+        this.editIsPlacingTiles = false
       } else {
         this.editorTick()
       }
@@ -442,63 +451,27 @@ class Levelmap {
     // Cursor/view movement should completely be disabled if the W key is
     // pressed, which controls wall placement.
     if (!keyListener.isPressed(87)) {
-
-      // If we press an arrow key and hold SHIFT, we should move at 10x speed.
-      // Otherwise just move one tile. Also, if we're moving quickly, the delay
-      // between each jump should be longer.
-      const amount = keyListener.isPressed(16) ? 10 : 1
-      const delay = keyListener.isPressed(16) ? 10 : 6
-
-      // If we press an arrow key and hold ALT (option), we should move the
-      // view along with the cursor. Otherwise just move the cursor.
-      const moveFn = (
-        keyListener.isPressed(18)
-        ? (x, y) => this.moveViewAndCursor(x, y)
-        : (x, y) => this.moveCursor(x, y)
-      )
-
-      // Actually handle moving. This only runs when we push down an arrow key.
-      // (That is, you have to release the arrow keys before moving another
-      // tile.)
-      if (this.moveTileCursorDelayTicks === 0) {
-        if (keyListener.isPressed(39)) {
-          moveFn(+amount, 0)
-          this.moveTileCursorDelayTicks = delay
-        } else if (keyListener.isPressed(38)) {
-          moveFn(0, -amount)
-          this.moveTileCursorDelayTicks = delay
-        } else if (keyListener.isPressed(37)) {
-          moveFn(-amount, 0)
-          this.moveTileCursorDelayTicks = delay
-        } else if (keyListener.isPressed(40)) {
-          moveFn(0, +amount)
-          this.moveTileCursorDelayTicks = delay
-        } else {
-          this.moveTileCursorDelayTicks = 0
-        }
-      } else {
-        this.moveTileCursorDelayTicks--
-      }
+      this.tileCursor.tick()
     }
 
     // Constrain cursor to level ----------------------------------------------
 
     // The tile cursor shouldn't be able to move out of the level bounds.
 
-    if (this.cursorTileX > (this.width - 1)) {
-      this.cursorTileX = this.width - 1
+    if (this.tileCursor.x > (this.width - 1)) {
+      this.tileCursor.x = this.width - 1
     }
 
-    if (this.cursorTileX < 0) {
-      this.cursorTileX = 0
+    if (this.tileCursor.x < 0) {
+      this.tileCursor.x = 0
     }
 
-    if (this.cursorTileY >= (this.height - 1)) {
-      this.cursorTileY = this.height - 1
+    if (this.tileCursor.y >= (this.height - 1)) {
+      this.tileCursor.y = this.height - 1
     }
 
-    if (this.cursorTileY < 0) {
-      this.cursorTileY = 0
+    if (this.tileCursor.y < 0) {
+      this.tileCursor.y = 0
     }
 
     // Make view follow cursor ------------------------------------------------
@@ -512,33 +485,53 @@ class Levelmap {
     // The view will follow the tile cursor when the cursor moves out of the
     // view's edges.
 
-    if (this.cursorTileX - this.scrollX >= canvasWidth) {
-      this.scrollX = this.cursorTileX - canvasWidth + 1
+    if (this.tileCursor.y - this.scrollX >= canvasWidth) {
+      this.scrollX = this.tileCursor.y - canvasWidth + 1
     }
 
-    if (this.cursorTileX - this.scrollX <= 0) {
-      this.scrollX = this.cursorTileX
+    if (this.tileCursor.y - this.scrollX <= 0) {
+      this.scrollX = this.tileCursor.y
     }
 
-    if (this.cursorTileY - this.scrollY >= canvasHeight) {
-      this.scrollY = this.cursorTileY - canvasHeight + 1
+    if (this.tileCursor.x - this.scrollY >= canvasHeight) {
+      this.scrollY = this.tileCursor.x - canvasHeight + 1
     }
 
-    if (this.cursorTileY - this.scrollY <= 0) {
-      this.scrollY = this.cursorTileY
+    if (this.tileCursor.x - this.scrollY <= 0) {
+      this.scrollY = this.tileCursor.x
     }
 
     // Tile placing -----------------------------------------------------------
 
     // Tilemap diffs would be cool but totally unhelpful, lol.
 
-    if (keyListener.isPressed(32)) { // Space
-      const selectedID = this.hotbarTiles[this.hotbarSelectedIndex]
+    // Tile placing is tough, since it uses the same button used to interact
+    // with most other UI elements, space, and pressing space can cause the
+    // editor to be shown - while space is still pressed. And since the space
+    // key was used to show the editor, NOT place a tile, we need to make sure
+    // we don't place a tile.
+    //
+    // Using 'isJustPressed' instead of 'isPressed' works, but that gets rid of
+    // our ability to "drag" tiles, which isn't good. So we need to
+    // specifically implement dragging for this purpose - we can do that by
+    // using a persistent 'editIsPlacingTiles' variable for the sake of
+    // deciding whether we're dragging or not. Then we clear that if the editor
+    // isn't focused (i.e. there's a dialog open) and it works!
+    //
+    // (Of course, we also need to clear the 'editIsPlacingTiles' variable if
+    // the space key isn't pressed.)
 
-      this.selectedLayer.tilemap.setTileAt(
-        this.cursorTileX, this.cursorTileY,
-        selectedID
-      )
+    if (keyListener.isJustPressed(32) || this.editIsPlacingTiles) { // Space
+      const selectedID = this.hotbarTiles[this.hotbarSelectedIndex]
+      const { x, y } = this.tileCursor
+
+      this.selectedLayer.tilemap.setTileAt(x, y, selectedID)
+
+      this.editIsPlacingTiles = true
+    }
+
+    if (!keyListener.isPressed(32)) {
+      this.editIsPlacingTiles = false
     }
 
     // Tick editor key actions.
@@ -550,14 +543,14 @@ class Levelmap {
     // the wall under the tile cursor.
 
     // We don't want anything to happen if there's a menu open..
-    if (this.activeEditMenu) return
+    if (this.activeEditDialog) return
 
     const { wallmap } = this.selectedLayer
     
-    const wall = wallmap.getWallAt(this.cursorTileX, this.cursorTileY)
+    const wall = wallmap.getWallAt(this.tileCursor.x, this.tileCursor.y)
     const newWall = wall ^ wallFlag
 
-    wallmap.setWallAt(this.cursorTileX, this.cursorTileY, newWall)
+    wallmap.setWallAt(this.tileCursor.x, this.tileCursor.y, newWall)
   }
 
   setLayerIndex(n) {
@@ -575,18 +568,6 @@ class Levelmap {
       this.selectedLayerIndex = this.layers.length
       this.setLayerIndex(this.layers.length + n)
     }
-  }
-
-  moveCursor(x, y) {
-    this.cursorTileX += x
-    this.cursorTileY += y
-  }
-
-  moveViewAndCursor(x, y) {
-    this.cursorTileX += x
-    this.cursorTileY += y
-    this.scrollX += x
-    this.scrollY += y
   }
 
   resize(newWidth, newHeight) {

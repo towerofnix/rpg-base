@@ -7,8 +7,6 @@ module.exports = class TileAtlas {
   }
 
   getTexturePos(id) {
-    return splitIndexToPos(
-      id, this.image.width, this.image.height, this.textureSize
-    )
+    return splitIndexToPos(id, this.image.width, this.textureSize)
   }
 }
