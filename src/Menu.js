@@ -1,6 +1,22 @@
 const Dialog = require('./Dialog')
 
 module.exports = class Menu extends Dialog {
+  // A menu.
+  //
+  // Make sure you give the menu some items. Just pass it as an array of items
+  // as the second argument to super (or new Menu). Each menu item should be an
+  // object of this format:
+  //
+  //  {
+  //     label: // The label of the menu item.
+  //     action: // The result of selecting this menu item, a function.
+  //     keyAction: // A function that's called every time a key is pressed on
+  //                // this menu item. Obviously you don't *need* to handle
+  //                // this.
+  //  }
+  //
+  // Emits the 'canceled' event when the escape key is pressed.
+
   constructor(game, items) {
     super()
 
@@ -51,6 +67,11 @@ module.exports = class Menu extends Dialog {
   tick() {
     const { keyListener } = this.game
 
+    if (keyListener.isJustPressed(27)) { // Escape
+      this.emit('canceled')
+      return
+    }
+
     const delay = this.firstKeypress ? 10 : 5
 
     let direction = 0
@@ -83,7 +104,7 @@ module.exports = class Menu extends Dialog {
     // If the space or enter key is pressed, run the selected menu item's
     // action.
     if (keyListener.isJustPressed(32) || keyListener.isJustPressed(13)) {
-      const { action } = this.items[this.selectedIndex]
+      const { action } = this.selectedItem
 
       if (action) {
         action(this)
@@ -92,7 +113,7 @@ module.exports = class Menu extends Dialog {
 
     for (let key in keyListener.keys) {
       if (keyListener.isJustPressed(key)) {
-        const { keyAction } = this.items[this.selectedIndex]
+        const { keyAction } = this.selectedItem
 
         if (keyAction) {
           keyAction(parseInt(key))

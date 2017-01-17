@@ -1,5 +1,10 @@
-module.exports = class Entity {
+const EventEmitter = require('events')
+const { filterOne } = require('./util')
+
+module.exports = class Entity extends EventEmitter {
   constructor(levelmap) {
+    super()
+
     this.levelmap = levelmap
     this.x = 0
     this.y = 0
@@ -17,9 +22,7 @@ module.exports = class Entity {
   }
 
   getAllowedMovement() {
-    const layer = this.levelmap.layers.filter(l => {
-      return l.entitymap.entities.includes(this)
-    })[0]
+    const layer = this.layer
 
     if (layer) {
       const movement = layer.wallmap.getAllowedMovement(this.x, this.y)
@@ -28,5 +31,11 @@ module.exports = class Entity {
     } else {
       return {left: false, right: false, up: false, down: false}
     }
+  }
+
+  get layer() {
+    return filterOne(this.levelmap.layers, layer => (
+     layer.entitymap.entities.includes(this)
+    ))
   }
 }

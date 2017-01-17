@@ -5,6 +5,7 @@ module.exports = class Entitymap {
 
     // A fancy structure containing data about the default position for
     // entities.
+    this.entityData = []
     this.loadEntityData(entityData)
 
     this.tileSize = 16

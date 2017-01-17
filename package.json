@@ -1,3 +1,6 @@
 {
-  "main": "main.js"
+  "main": "main.js",
+  "dependencies": {
+    "fs-promise": "^1.0.0"
+  }
 }

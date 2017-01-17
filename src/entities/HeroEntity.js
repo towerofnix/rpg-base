@@ -39,5 +39,15 @@ module.exports = class HeroEntity extends Entity {
         this.direction = null
       }
     }
+
+    if (Number.isInteger(this.x) && Number.isInteger(this.y)) {
+      const door = this.layer.doormap.getItemAt(this.x, this.y)
+
+      if (door) {
+        const doorData = this.levelmap.doors[door - 1]
+
+        this.emit('steppedOnDoor', doorData.to)
+      }
+    }
   }
 }

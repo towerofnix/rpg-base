@@ -1,11 +1,34 @@
-const Menu = require('./Menu')
+const EDITOR_MODE_DISABLED = false
+const EDITOR_MODE_WORLD = 'WORLD'
+const EDITOR_MODE_DOORMAP = 'DOORMAP'
+
+const HeroEntity = require('./entities/HeroEntity')
+
+const exportConstants = () => {
+  // Modules required here won't be able to access these constants unless we
+  // export them NOW, but later on modules that require this won't be able to
+  // access those properties because we overrided module.exports altogether
+  // (to the Levelmap class), so we need to call this again later.
+
+  Object.assign(module.exports, {
+    EDITOR_MODE_DISABLED,
+    EDITOR_MODE_WORLD,
+    EDITOR_MODE_DOORMAP
+  })
+}
+
+exportConstants()
+
 const Tilemap = require('./Tilemap')
 const Wallmap = require('./Wallmap')
 const Entitymap = require('./Entitymap')
+const Doormap = require('./Doormap')
 const AtlasTilePicker = require('./AtlasTilePicker')
-const { makeKeyAction } = require('./util')
 const TileCursor = require('./TileCursor')
 const InfoDialog = require('./InfoDialog')
+const { makeKeyAction } = require('./util')
+
+const LevelMenu = require('./menus/LevelMenu')
 
 class Levelmap {
   constructor(game, width, height, atlas, tileSize = 16) {
@@ -15,14 +38,8 @@ class Levelmap {
     this.tileAtlas = atlas
     this.tileSize = tileSize
 
-    this.editMode = false
+    this.editorMode = EDITOR_MODE_DISABLED
     this.testMode = false
-
-    // In edit mode, the world's view is below a tile picker, so we need to
-    // render respective elements to a shorter canvas.
-    this.editModeCanvas = document.createElement('canvas')
-    this.editModeCanvas.width = game.canvasTarget.width
-    this.editModeCanvas.height = game.canvasTarget.height - this.tileSize
 
     this.editIsPlacingTiles = false
 
@@ -41,8 +58,10 @@ class Levelmap {
         // ESC opens the level info/utility menu.
 
         this.activeEditDialog = this.editInfoMenu
-      }),
+      })
+    ]
 
+    this.worldEditorKeyActions = [
       makeKeyAction(game.keyListener, [87, 40], () => { // W+Down
         this.wallPressed(0b0010)
       }),
@@ -75,7 +94,7 @@ class Levelmap {
     // Since JS indexes start at 0 but the hotbar keys start at 1, we also
     // need to subtract one from the key index.
     for (let i = 1; i <= 9; i++) {
-      this.editorKeyActions.push(
+      this.worldEditorKeyActions.push(
         makeKeyAction(game.keyListener, [i + 48], () => {
           this.hotbarSelectedIndex = i - 1
         }),
@@ -126,231 +145,63 @@ class Levelmap {
       this.scrollY += y
     })
 
-    this.editInfoMenu = new Menu(game, [
-      {label: 'Resize Map..', action: () => {
-        let newWidth = this.width
-        let newHeight = this.height
-
-        const updateWidthLabel = () => {
-          widthMenuItem.label = 'Width: ' + newWidth
-        }
-
-        const widthMenuItem = {
-          label: '..', keyAction: key => {
-            if (key >= 48 && key <= 57) {
-              newWidth = parseInt(
-                newWidth.toString().concat(String.fromCharCode(key))
-              )
-            } else if (key === 8) {
-              newWidth = parseInt(newWidth.toString().slice(0, -1))
-            }
-
-            if (isNaN(newWidth)) {
-              newWidth = 0
-            }
-
-            if (newWidth > 1024) {
-              newWidth = 1024
-            }
-
-            updateWidthLabel()
-          }
-        }
-
-        const updateHeightLabel = () => {
-          heightMenuItem.label = 'Height: ' + newHeight
-        }
-
-        const heightMenuItem = {
-          label: '..', keyAction: key => {
-            if (key >= 48 && key <= 57) {
-              newHeight = parseInt(
-                newHeight.toString().concat(String.fromCharCode(key))
-              )
-            } else if (key === 8) {
-              newHeight = parseInt(newHeight.toString().slice(0, -1))
-            }
-
-            if (isNaN(newHeight)) {
-              newHeight = 0
-            }
-
-            if (newHeight > 1024) {
-              newHeight = 1024
-            }
-
-            updateHeightLabel()
-          }
-        }
-
-        updateWidthLabel()
-        updateHeightLabel()
-
-        this.activeEditDialog = new Menu(game, [
-          widthMenuItem, heightMenuItem,
-          {label: 'Confirm', action: () => {
-            this.resize(newWidth, newHeight)
-            this.activeEditDialog = this.editInfoMenu
-          }},
-          {label: 'Cancel', action: () => {
-            this.activeEditDialog = this.editInfoMenu
-          }}
-        ])
-      }},
-      {label: 'Edit Layers..', action: () => {
-        let menu
-
-        const newLayers = this.layers.slice(0)
-
-        const confirmMenuItem = {label: 'Confirm', action: () => {
-          // const fn = l => l.tilemap.tiles
-          // console.log(this.layers.map(fn))
-          // console.log(newLayers.map(fn))
-
-          this.layers = newLayers
-          this.activeEditDialog = this.editInfoMenu
-        }}
-
-        const cancelMenuItem = {label: 'Cancel', action: () => {
-          this.activeEditDialog = this.editInfoMenu
-        }}
-
-        const moveDownLayer = (i) => {
-          // We can't move the bottom layer down..
-          if (i === 0) return
-
-          const layer = newLayers.splice(i, 1)[0]
-          newLayers.splice(i - 1, 0, layer)
-
-          const oldIndex = menu.selectedIndex
-          setupMenu()
-          menu.selectedIndex = oldIndex - 3
-        }
-
-        const moveUpLayer = (i) => {
-          // We can't move the top layer up..
-          if (i === newLayers.length - 1) return
-
-          const layer = newLayers.splice(i, 1)[0]
-          newLayers.splice(i + 1, 0, layer)
-
-          const oldIndex = menu.selectedIndex
-          setupMenu()
-          menu.selectedIndex = oldIndex + 3
-        }
-
-        const deleteLayer = (i) => {
-          // We can't delete *all* the layers..
-          if (newLayers.length === 1) return
-
-          newLayers.splice(i, 1)
-
-          // Since we're pulling everything up we don't need to move the
-          // cursor.
-          const oldIndex = menu.selectedIndex
-          setupMenu()
-          menu.selectedIndex = oldIndex
-        }
-
-        const addLayerAbove = (i) => {
-          newLayers.splice(i - 1, 0, this.createLayer())
-
-          // Since we're pushing everything down we don't need to move the
-          // cursor.
-          const oldIndex = menu.selectedIndex
-          setupMenu()
-          menu.selectedIndex = oldIndex
-        }
-
-        const createLayerMenuItems = () => {
-
-          const layerMenuItems = []
-
-          for (let i = 0; i < newLayers.length; i++) {
-            const layer = newLayers[i]
-
-            layerMenuItems.push({
-              label: `Layer ${i} (old: ${this.layers.indexOf(layer)})`,
-              action: () => {
-                menu.selectedIndex += 1
-                menu.constraints()
-              },
-              keyAction: (key) => {
-                // Moving layers use the same keys as going up/down layers in
-                // the main level editor.
-                if (key === 221) { // ]
-                  moveDownLayer(i)
-                } else if (key === 219) { // [
-                  moveUpLayer(i)
-                } else if (key === 189) { // -
-                  deleteLayer(i)
-                } else if (key === 187) { // +
-                  addLayerAbove(i)
-                }
-              }
-            })
-            layerMenuItems.push({label: '  Move Down', action: () => {
-              moveDownLayer(i)
-            }})
-            layerMenuItems.push({label: '  Move Up', action: () => {
-              moveUpLayer(i)
-            }})
-          }
-
-          return layerMenuItems
-        }
-
-        const setupMenu = () => {
-          menu = this.activeEditDialog = new Menu(game, [
-            ...createLayerMenuItems(),
-            {label: '------------------', selectable: false},
-            confirmMenuItem, cancelMenuItem
-          ])
-        }
-
-        setupMenu()
-      }},
-      {label: 'Edit Map..', action: () => {
-        this.activeEditDialog = null
-      }}
-    ])
+    this.editInfoMenu = new LevelMenu(this)
 
     this.activeEditDialog = this.editInfoMenu
     this.editInfoDialog = new InfoDialog()
 
-    this.layers = []
-    this.layers.push(this.createLayer())
+    this.layers = [this.createLayer()]
+    this.doors = []
 
     this.selectedLayerIndex = 0
   }
 
   drawTo(canvasTarget) {
-    if (this.editMode && !this.testMode) {
+    if (this.editorMode && !this.testMode) {
       if (this.activeEditDialog) {
         this.activeEditDialog.drawTo(canvasTarget)
       } else {
         const ctx = canvasTarget.getContext('2d')
 
+        this.editModeCanvas = document.createElement('canvas')
+        this.editModeCanvas.width = canvasTarget.width
+
+        if (this.editorMode === EDITOR_MODE_WORLD) {
+          this.editModeCanvas.height = canvasTarget.height - this.tileSize
+        } else {
+          this.editModeCanvas.height = canvasTarget.height
+        }
+
         const ectx = this.editModeCanvas.getContext('2d')
+
         ectx.clearRect(
           0, 0, this.editModeCanvas.width, this.editModeCanvas.height
         )
 
-        for (let { tilemap, wallmap, entitymap } of this.layers) {
+        for (let layer of this.visibleEditorLayers) {
+          const { tilemap, wallmap, entitymap, doormap } = layer
+
+          let editorCanvas = this.editModeCanvas
+
           if (
             tilemap === this.selectedLayer.tilemap && this.jitterSelectedLayer
           ) {
-            const canvas = document.createElement('canvas')
-            canvas.width = canvasTarget.width
-            canvas.height = canvasTarget.height
-            tilemap.drawTo(canvas)
-            wallmap.drawTo(canvas)
-            entitymap.drawTo(canvas)
-            ectx.drawImage(canvas, Math.floor(Date.now() % 2), 0)
-          } else {
-            tilemap.drawTo(this.editModeCanvas)
-            wallmap.drawTo(this.editModeCanvas)
-            entitymap.drawTo(this.editModeCanvas)
+            editorCanvas = document.createElement('canvas')
+            editorCanvas.width = canvasTarget.width
+            editorCanvas.height = canvasTarget.height
+          }
+
+          tilemap.drawTo(editorCanvas)
+
+          if (this.editorMode === EDITOR_MODE_WORLD) {
+            wallmap.drawTo(editorCanvas)
+            entitymap.drawTo(editorCanvas)
+          } else if (this.editorMode === EDITOR_MODE_DOORMAP) {
+            doormap.drawTo(editorCanvas)
+          }
+
+          if (editorCanvas !== this.editModeCanvas) {
+            ectx.drawImage(editorCanvas, Math.floor(Date.now() % 2), 0)
           }
         }
 
@@ -363,9 +214,14 @@ class Levelmap {
         this.editInfoDialog.drawTo(infoDialogCanvas)
         ectx.drawImage(infoDialogCanvas, 0, 0)
 
-        ctx.drawImage(this.editModeCanvas, 0, this.tileSize)
+        ctx.drawImage(
+          this.editModeCanvas,
+          0, canvasTarget.height - this.editModeCanvas.height
+        )
 
-        this.drawEditHotbarTo(canvasTarget)
+        if (this.editorMode === EDITOR_MODE_WORLD) {
+          this.drawEditHotbarTo(canvasTarget)
+        }
       }
     } else {
       for (let { tilemap, entitymap } of this.layers) {
@@ -422,7 +278,7 @@ class Levelmap {
   }
 
   tick() {
-    if (this.editMode) {
+    if (this.editorMode) {
       this.editModeTick()
     } else {
       this.gameTick()
@@ -457,18 +313,17 @@ class Levelmap {
   }
 
   editorTick() {
-    const { keyListener } = this.game
-
-    // Handle editor movement through keyboard input --------------------------
-
-    // Cursor/view movement should completely be disabled if the W key is
-    // pressed, which controls wall placement.
-    if (!keyListener.isPressed(87)) {
-      this.tileCursor.tick()
+    if (this.editorMode === EDITOR_MODE_WORLD) {
+      this.worldEditorTick()
+    } else if (this.editorMode === EDITOR_MODE_DOORMAP) {
+      this.doormapEditorTick()
     }
 
-    // Constrain cursor to level ----------------------------------------------
+    // Tick editor key actions.
+    for (let tick of this.editorKeyActions) tick()
+  }
 
+  constrainCursorToLevel() {
     // The tile cursor shouldn't be able to move out of the level bounds.
 
     if (this.tileCursor.x > (this.width - 1)) {
@@ -486,17 +341,17 @@ class Levelmap {
     if (this.tileCursor.y < 0) {
       this.tileCursor.y = 0
     }
+  }
 
-    // Make view follow cursor ------------------------------------------------
+  viewFollowCursor() {
+    // The view will follow the tile cursor when the cursor moves out of the
+    // view's edges.
 
     const canvasWidth = Math.floor(
       this.editModeCanvas.width / this.tileSize)
 
     const canvasHeight = Math.floor(
       this.editModeCanvas.height / this.tileSize)
-
-    // The view will follow the tile cursor when the cursor moves out of the
-    // view's edges.
 
     if (this.tileCursor.x - this.scrollX >= canvasWidth) {
       this.scrollX = this.tileCursor.x - canvasWidth + 1
@@ -513,6 +368,21 @@ class Levelmap {
     if (this.tileCursor.y - this.scrollY <= 0) {
       this.scrollY = this.tileCursor.y
     }
+  }
+
+  worldEditorTick() {
+    const { keyListener } = this.game
+
+    // Handle editor movement through keyboard input --------------------------
+
+    // Cursor/view movement should completely be disabled if the W key is
+    // pressed, which controls wall placement.
+    if (!keyListener.isPressed(87)) {
+      this.tileCursor.tick()
+    }
+
+    this.constrainCursorToLevel()
+    this.viewFollowCursor()
 
     // Tile placing -----------------------------------------------------------
 
@@ -538,7 +408,7 @@ class Levelmap {
       const selectedID = this.hotbarTiles[this.hotbarSelectedIndex]
       const { x, y } = this.tileCursor
 
-      this.selectedLayer.tilemap.setTileAt(x, y, selectedID)
+      this.selectedLayer.tilemap.setItemAt(x, y, selectedID)
 
       this.editIsPlacingTiles = true
     }
@@ -547,8 +417,30 @@ class Levelmap {
       this.editIsPlacingTiles = false
     }
 
-    // Tick editor key actions.
-    for (let tick of this.editorKeyActions) tick()
+    for (let tick of this.worldEditorKeyActions) tick()
+  }
+
+  doormapEditorTick() {
+    const { keyListener } = this.game
+
+    this.tileCursor.tick()
+    this.constrainCursorToLevel()
+    this.viewFollowCursor()
+
+    // Door placing -----------------------------------------------------------
+
+    // By rights we should do the same deal with dragging as we do in
+    // worldEditorTick, but it's not really necessary, since pressing a number
+    // usually won't result in the doormap editor unexpectedly appearing.
+
+    // The 0-9 keys, all equal to n + 48.
+    for (let i = 0; i <= 9; i++) {
+      if (keyListener.isPressed(i + 48)) {
+        const { doormap } = this.selectedLayer
+
+        doormap.setItemAt(this.tileCursor.x, this.tileCursor.y, i)
+      }
+    }
   }
 
   wallPressed(wallFlag) {
@@ -560,10 +452,10 @@ class Levelmap {
 
     const { wallmap } = this.selectedLayer
     
-    const wall = wallmap.getWallAt(this.tileCursor.x, this.tileCursor.y)
+    const wall = wallmap.getItemAt(this.tileCursor.x, this.tileCursor.y)
     const newWall = wall ^ wallFlag
 
-    wallmap.setWallAt(this.tileCursor.x, this.tileCursor.y, newWall)
+    wallmap.setItemAt(this.tileCursor.x, this.tileCursor.y, newWall)
   }
 
   setLayerIndex(n) {
@@ -582,7 +474,10 @@ class Levelmap {
       this.setLayerIndex(this.layers.length + n)
     }
 
-    this.editInfoDialog.timerText(`Current layer: ${this.selectedLayerIndex}`)
+    this.editInfoDialog.timerText(
+      `Current layer: ${this.selectedLayerIndex}` +
+      (this.selectedLayer.visibleInEditor ? '' : ' (INVIS)')
+    )
   }
 
   resize(newWidth, newHeight) {
@@ -593,8 +488,8 @@ class Levelmap {
       for (let y = 0; y < newHeight; y++) {
         for (let x = 0; x < newWidth; x++) {
           if (x < this.width && y < this.height) {
-            newTiles.push(tilemap.getTileAt(x, y))
-            newWalls.push(wallmap.getWallAt(x, y))
+            newTiles.push(tilemap.getItemAt(x, y))
+            newWalls.push(wallmap.getItemAt(x, y))
           } else {
             newTiles.push(0x00)
             newWalls.push(0b0000)
@@ -602,8 +497,8 @@ class Levelmap {
         }
       }
 
-      tilemap.tiles = newTiles
-      wallmap.walls = newWalls
+      tilemap.items = newTiles
+      wallmap.items = newWalls
     }
 
     this.width = newWidth
@@ -619,6 +514,10 @@ class Levelmap {
     return this.getLayer(this.selectedLayerIndex)
   }
 
+  get visibleEditorLayers() {
+    return this.layers.filter(x => x.visibleInEditor)
+  }
+
   getLayer(n) {
     if (n >= 0) {
       return this.layers[n]
@@ -629,9 +528,18 @@ class Levelmap {
 
   createLayer() {
     return {
+      visibleInEditor: true,
+
       tilemap: new Tilemap(this),
       wallmap: new Wallmap(this),
-      entitymap: new Entitymap(this)
+      entitymap: new Entitymap(this),
+      doormap: new Doormap(this)
+    }
+  }
+
+  createDoor() {
+    return {
+      to: null
     }
   }
 
@@ -640,22 +548,64 @@ class Levelmap {
       width: this.width,
       height: this.height,
       layers: this.layers.map(layer => ({
-        tiles: layer.tilemap.tiles.slice(0),
-        walls: layer.wallmap.walls.slice(0)
+        tiles: layer.tilemap.items.slice(0),
+        walls: layer.wallmap.items.slice(0),
+        doors: layer.doormap.items.slice(0),
+        entities: layer.entitymap.entityData.map(
+          // TODO: More than just hero support.. probably need some dictionary
+          // of ids -> entities somewhere.
+          ([ cls, x, y ]) => ['__HERO__', x, y]
+        )
+      })),
+      doors: this.doors.map(door => ({
+        to: door.to
       }))
     }
   }
 
   loadFromSaveObj(save) {
-    this.width = save.width
-    this.height = save.height
-    this.layers = save.layers.map(layerObj => {
+    const { width = 10, height = 10, layers = [], doors = [] } = save
+
+    this.width = width
+    this.height = height
+
+    this.layers = layers.map(layerObj => {
       const layer = this.createLayer()
-      layer.tilemap.tiles = layerObj.tiles.slice(0)
-      layer.wallmap.walls = layerObj.walls.slice(0)
+
+      const { tiles = [], walls = [], doors = [], entities = [] } = layerObj
+
+      layer.tilemap.items = tiles.slice(0)
+      layer.wallmap.items = walls.slice(0)
+      layer.doormap.items = doors.slice(0)
+      layer.entitymap.loadEntityData(entities.map(([ clsID, x, y ]) => [
+        HeroEntity, x, y
+      ]))
+
       return layer
     })
+
+    this.doors = doors.map((doorObj) => {
+      const door = this.createDoor()
+
+      const { to = null } = (doorObj || {})
+
+      door.to = to
+
+      return door
+    })
+
+    this.cleanLayers()
+  }
+
+  cleanLayers() {
+    for (let { tilemap, wallmap, doormap } of this.layers) {
+      tilemap.cleanItems()
+      wallmap.cleanItems()
+      doormap.cleanItems()
+    }
   }
 }
 
 module.exports = Levelmap
+
+exportConstants()
