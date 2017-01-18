@@ -46,7 +46,7 @@ module.exports = class HeroEntity extends Entity {
       if (door) {
         const doorData = this.levelmap.doors[door - 1]
 
-        this.emit('steppedOnDoor', doorData.to)
+        this.emit('steppedOnDoor', doorData)
       }
     }
   }

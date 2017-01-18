@@ -5,6 +5,8 @@ const LayerMenu = require('./LayerMenu')
 const WorldResizeMenu = require('./WorldResizeMenu')
 const DoorMenu = require('./DoorMenu')
 
+const fsp = require('fs-promise')
+
 module.exports = class LevelMenu extends Menu {
   constructor(levelmap) {
     super(levelmap.game, [
@@ -19,6 +21,7 @@ module.exports = class LevelMenu extends Menu {
       {label: 'Edit Layers..', action: () => this.layerMenu()},
       {label: 'Edit Doors..', action: () => this.doorMenu()},
       {label: 'Resize Map..', action: () => this.resizeMenu()},
+      {label: 'Save Map', action: () => this.save()}
     ])
 
     this.levelmap = levelmap
@@ -46,5 +49,15 @@ module.exports = class LevelMenu extends Menu {
     menu.on('canceled', () => this.levelmap.activeEditDialog = this)
     menu.on('dialogRequested', d => this.levelmap.activeEditDialog = d)
     this.levelmap.activeEditDialog = menu
+  }
+
+  save() {
+    game.saveLevelmap()
+      .then(() => {
+        console.log('Saved.')
+      })
+      .catch(err => {
+        console.error('Failed to save!', err)
+      })
   }
 }

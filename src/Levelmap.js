@@ -1,8 +1,7 @@
 const EDITOR_MODE_DISABLED = false
 const EDITOR_MODE_WORLD = 'WORLD'
+const EDITOR_MODE_PICK_WORLD_TILE = 'PICK_WORLD_TILE'
 const EDITOR_MODE_DOORMAP = 'DOORMAP'
-
-const HeroEntity = require('./entities/HeroEntity')
 
 const exportConstants = () => {
   // Modules required here won't be able to access these constants unless we
@@ -13,11 +12,14 @@ const exportConstants = () => {
   Object.assign(module.exports, {
     EDITOR_MODE_DISABLED,
     EDITOR_MODE_WORLD,
-    EDITOR_MODE_DOORMAP
+    EDITOR_MODE_DOORMAP,
+    EDITOR_MODE_PICK_WORLD_TILE
   })
 }
 
 exportConstants()
+
+const EventEmitter = require('events')
 
 const Tilemap = require('./Tilemap')
 const Wallmap = require('./Wallmap')
@@ -26,12 +28,15 @@ const Doormap = require('./Doormap')
 const AtlasTilePicker = require('./AtlasTilePicker')
 const TileCursor = require('./TileCursor')
 const InfoDialog = require('./InfoDialog')
+const HeroEntity = require('./entities/HeroEntity')
 const { makeKeyAction } = require('./util')
 
 const LevelMenu = require('./menus/LevelMenu')
 
-class Levelmap {
+class Levelmap extends EventEmitter {
   constructor(game, width, height, atlas, tileSize = 16) {
+    super()
+
     this.game = game
     this.width = width
     this.height = height
@@ -56,6 +61,13 @@ class Levelmap {
 
       makeKeyAction(game.keyListener, [27], () => {
         // ESC opens the level info/utility menu.
+
+        // But if we're in the tile picker, we want to emit an event, not close
+        // the edit dialog..
+        if (this.editorMode === EDITOR_MODE_PICK_WORLD_TILE) {
+          this.emit('tilePicked', null)
+          return
+        }
 
         this.activeEditDialog = this.editInfoMenu
       }),
@@ -317,6 +329,8 @@ class Levelmap {
       this.worldEditorTick()
     } else if (this.editorMode === EDITOR_MODE_DOORMAP) {
       this.doormapEditorTick()
+    } else if (this.editorMode === EDITOR_MODE_PICK_WORLD_TILE) {
+      this.tilePickerTick()
     }
 
     // Tick editor key actions.
@@ -443,6 +457,29 @@ class Levelmap {
     }
   }
 
+  tilePickerTick() {
+    const { keyListener } = this.game
+
+    this.tileCursor.tick()
+    this.constrainCursorToLevel()
+    this.viewFollowCursor()
+
+    // Space or enter
+    if (keyListener.isJustPressed(32) || keyListener.isJustPressed(13)) {
+      const selectedTile = this.selectedLayer.tilemap.getItemAt(
+        this.tileCursor.x, this.tileCursor.y
+      )
+
+      const evt = [
+        [this.tileCursor.x, this.tileCursor.y],
+        this.selectedLayerIndex,
+        selectedTile
+      ]
+
+      this.emit('tilePicked', evt)
+    }
+  }
+
   wallPressed(wallFlag) {
     // Called when a wall combo key is pressed (W+arrow). Toggles the edge of
     // the wall under the tile cursor.
@@ -539,7 +576,8 @@ class Levelmap {
 
   createDoor() {
     return {
-      to: null
+      to: null,
+      spawnPos: [0, 0]
     }
   }
 
@@ -558,7 +596,8 @@ class Levelmap {
         )
       })),
       doors: this.doors.map(door => ({
-        to: door.to
+        to: door.to,
+        spawnPos: door.spawnPos.slice(0)
       }))
     }
   }
@@ -587,9 +626,10 @@ class Levelmap {
     this.doors = doors.map((doorObj) => {
       const door = this.createDoor()
 
-      const { to = null } = (doorObj || {})
+      const { to = null, spawnPos = [0, 0] } = (doorObj || {})
 
       door.to = to
+      door.spawnPos = spawnPos
 
       return door
     })

@@ -18,6 +18,9 @@ module.exports = class Game {
     this.canvasTarget.focus()
 
     this.levelmap = new Levelmap(this, 0, 0, null)
+    this.levelmapPath = null
+
+    this.heroEntity = null
 
     this.anim = null
   }
@@ -31,8 +34,15 @@ module.exports = class Game {
   }
 
   setupHeroEntity(hero) {
-    hero.on('steppedOnDoor', (targetPath) => {
-      game.loadLevelmapFromFile(targetPath)
+    this.heroEntity = hero
+    hero.on('steppedOnDoor', (door) => {
+      game.loadLevelmapFromFile(door.to, true, () => {
+        const newHero = this.heroEntity
+        if (newHero) {
+          newHero.x = door.spawnPos[0]
+          newHero.y = door.spawnPos[1]
+        }
+      })
     })
   }
 
@@ -82,7 +92,9 @@ module.exports = class Game {
     }
   }
 
-  loadLevelmapFromFile(path, transition = true) {
+  loadLevelmapFromFile(path, transition = true, initFn = null) {
+    this.levelmapPath = path
+
     const realPath = this.packagePath + path
 
     let loadedCb = null
@@ -102,8 +114,19 @@ module.exports = class Game {
           this.setupHeroEntity(hero)
         }
 
+        if (initFn) {
+          initFn()
+        }
+
         return (loadedCb ? loadedCb() : null)
       })
+  }
+
+  saveLevelmap() {
+    const realPath = this.packagePath + this.levelmapPath
+    const str = JSON.stringify(this.levelmap.getSaveObj())
+
+    return fsp.writeFile(realPath, str)
   }
 
   levelTransition() {

@@ -1,4 +1,5 @@
 const Menu = require('../Menu')
+const Levelmap = require('../Levelmap')
 
 const path = require('path')
 const { filterOne } = require('../util')
@@ -82,9 +83,15 @@ module.exports = class DoorMenu extends Menu {
       selectable: false
     }
 
+    const spawnPosItem = {
+      label: `Spawn: ${door.spawnPos[0]}, ${door.spawnPos[1]}`,
+      selectable: false
+    }
+
     const menu = new Menu(this.levelmap.game, [
       {label: `Door ${this.newDoors.indexOf(door) + 1}`, selectable: false},
       pathItem,
+      spawnPosItem,
       {label: '', selectable: false},
       {label: 'Choose Path..', action: () => {
         const openSelection = dialog.showOpenDialog({
@@ -114,6 +121,31 @@ module.exports = class DoorMenu extends Menu {
             '\nMaybe it isn\'t in the game package folder?'
           )
         }
+      }},
+      {label: 'Choose Spawn..', action: () => {
+        if (!door.to) {
+          return
+        }
+
+        const { game } = this.levelmap
+
+        const oldLevel = this.levelmap.game.levelmapPath
+
+        this.emit('dialogRequested', null)
+        game.loadLevelmapFromFile(door.to, false).then(() => {
+          this.levelmap.editorMode = Levelmap.EDITOR_MODE_PICK_WORLD_TILE
+          this.levelmap.once('tilePicked', evt => {
+            // We don't want to change the spawn position if the user
+            // cancelled.
+            if (evt) {
+              door.spawnPos = evt[0]
+            }
+
+            game.loadLevelmapFromFile(oldLevel, false).then(() => {
+              this.emit('dialogRequested', this)
+            })
+          })
+        })
       }},
       {label: 'Back', action: () => this.emit('dialogRequested', this)}
     ])
