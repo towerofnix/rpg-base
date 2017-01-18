@@ -58,6 +58,14 @@ class Levelmap {
         // ESC opens the level info/utility menu.
 
         this.activeEditDialog = this.editInfoMenu
+      }),
+
+      makeKeyAction(game.keyListener, [219], () => { // [
+        this.setLayerIndex(this.selectedLayerIndex - 1)
+      }),
+
+      makeKeyAction(game.keyListener, [221], () => { // ]
+        this.setLayerIndex(this.selectedLayerIndex + 1)
       })
     ]
 
@@ -76,14 +84,6 @@ class Levelmap {
 
       makeKeyAction(game.keyListener, [87, 37], () => { // W+Left
         this.wallPressed(0b0001)
-      }),
-
-      makeKeyAction(game.keyListener, [219], () => { // [
-        this.setLayerIndex(this.selectedLayerIndex - 1)
-      }),
-
-      makeKeyAction(game.keyListener, [221], () => { // ]
-        this.setLayerIndex(this.selectedLayerIndex + 1)
       })
     ]
 
