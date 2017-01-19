@@ -2,6 +2,7 @@ const EDITOR_MODE_DISABLED = false
 const EDITOR_MODE_WORLD = 'WORLD'
 const EDITOR_MODE_PICK_WORLD_TILE = 'PICK_WORLD_TILE'
 const EDITOR_MODE_DOORMAP = 'DOORMAP'
+const EDITOR_MODE_TEST = 'TEST'
 
 const exportConstants = () => {
   // Modules required here won't be able to access these constants unless we
@@ -13,7 +14,8 @@ const exportConstants = () => {
     EDITOR_MODE_DISABLED,
     EDITOR_MODE_WORLD,
     EDITOR_MODE_DOORMAP,
-    EDITOR_MODE_PICK_WORLD_TILE
+    EDITOR_MODE_PICK_WORLD_TILE,
+    EDITOR_MODE_TEST
   })
 }
 
@@ -44,9 +46,6 @@ class Levelmap extends EventEmitter {
     this.tileSize = tileSize
 
     this.editorMode = EDITOR_MODE_DISABLED
-    this.testMode = false
-
-    this.editIsPlacingTiles = false
 
     // If this is enabled, in edit mode, the selected layer will shake so that
     // it's easier to see it's the selected layer.
@@ -139,7 +138,14 @@ class Levelmap extends EventEmitter {
       makeKeyAction(game.keyListener, [17, 84], () => {
         // ^T toggles test mode.
 
-        this.testMode = !this.testMode
+        if (this.editorMode === EDITOR_MODE_TEST) {
+          // Workaround for "definitely in the editor, just no particular
+          // editor..".. XXX
+          this.editorMode = true
+          this.activeEditDialog = this.editInfoMenu
+        } else {
+          this.editorMode = EDITOR_MODE_TEST
+        }
       })
     ]
 
@@ -158,24 +164,33 @@ class Levelmap extends EventEmitter {
     })
 
     this.editInfoMenu = new LevelMenu(this)
-
-    this.activeEditDialog = this.editInfoMenu
     this.editInfoDialog = new InfoDialog()
+
+    this.editIsPlacingTiles = false
+
+    this.activeEditDialog = null
+
+    this.editModeCanvas = document.createElement('canvas')
+    this.editModeCanvas.width = game.canvasTarget.width
+    this.editModeCanvas.height = game.canvasTarget.height
+
+    // This should be set by Game when a levelmap is loaded from a file.
+    this.filePath = null
 
     this.layers = [this.createLayer()]
     this.doors = []
+    this.defaultSpawnPos = [0, 0, 0] // x, y, layer
 
     this.selectedLayerIndex = 0
   }
 
   drawTo(canvasTarget) {
-    if (this.editorMode && !this.testMode) {
+    if (this.editorMode && this.editorMode !== EDITOR_MODE_TEST) {
       if (this.activeEditDialog) {
         this.activeEditDialog.drawTo(canvasTarget)
       } else {
         const ctx = canvasTarget.getContext('2d')
 
-        this.editModeCanvas = document.createElement('canvas')
         this.editModeCanvas.width = canvasTarget.width
 
         if (this.editorMode === EDITOR_MODE_WORLD) {
@@ -306,7 +321,7 @@ class Levelmap extends EventEmitter {
   editModeTick() {
     const { keyListener } = this.game
 
-    if (this.testMode) {
+    if (this.editorMode === EDITOR_MODE_TEST) {
       this.gameTick()
     } else {
       if (this.activeEditDialog) {
@@ -470,11 +485,12 @@ class Levelmap extends EventEmitter {
         this.tileCursor.x, this.tileCursor.y
       )
 
-      const evt = [
-        [this.tileCursor.x, this.tileCursor.y],
-        this.selectedLayerIndex,
-        selectedTile
-      ]
+      const evt = {
+        x: this.tileCursor.x,
+        y: this.tileCursor.y,
+        layer: this.selectedLayerIndex,
+        tileID: selectedTile
+      }
 
       this.emit('tilePicked', evt)
     }
@@ -577,7 +593,7 @@ class Levelmap extends EventEmitter {
   createDoor() {
     return {
       to: null,
-      spawnPos: [0, 0]
+      spawnPos: [0, 0, 0]
     }
   }
 
@@ -598,12 +614,17 @@ class Levelmap extends EventEmitter {
       doors: this.doors.map(door => ({
         to: door.to,
         spawnPos: door.spawnPos.slice(0)
-      }))
+      })),
+      defaultSpawnPos: this.defaultSpawnPos.slice(0)
     }
   }
 
   loadFromSaveObj(save) {
-    const { width = 10, height = 10, layers = [], doors = [] } = save
+    const {
+      width = 10, height = 10,
+      layers = [], doors = [],
+      defaultSpawnPos = []
+    } = save
 
     this.width = width
     this.height = height
@@ -634,6 +655,9 @@ class Levelmap extends EventEmitter {
       return door
     })
 
+    const [ dspX = 0, dspY = 0, dspL = 0 ] = defaultSpawnPos
+    this.defaultSpawnPos = [dspX, dspY, dspL]
+
     this.cleanLayers()
   }
 
@@ -643,6 +667,13 @@ class Levelmap extends EventEmitter {
       wallmap.cleanItems()
       doormap.cleanItems()
     }
+  }
+
+  pickTile() {
+    return new Promise(res => {
+      this.editorMode = EDITOR_MODE_PICK_WORLD_TILE
+      this.once('tilePicked', evt => res(evt))
+    })
   }
 }
 

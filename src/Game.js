@@ -1,9 +1,11 @@
-const fsp = require('fs-promise')
-const path = require('path')
 const Levelmap = require('./Levelmap')
 const KeyListener = require('./KeyListener')
 const HeroEntity = require('./entities/HeroEntity')
 const { filterOne } = require('./util')
+
+const fsp = require('fs-promise')
+const path = require('path')
+const { spawn } = require('child_process')
 
 module.exports = class Game {
   // TODO: Support having multiple heroes!
@@ -21,8 +23,14 @@ module.exports = class Game {
     this.levelmapPath = null
 
     this.heroEntity = null
+    this.tileAtlas = null
 
     this.anim = null
+
+    // Dealing with javascript here, it's annoying.
+    this._listeners = {
+      heroSteppedOnDoor: door => this.heroSteppedOnDoor(door)
+    }
   }
 
   tick() {
@@ -35,24 +43,34 @@ module.exports = class Game {
 
   setupHeroEntity(hero) {
     this.heroEntity = hero
-    hero.on('steppedOnDoor', (door) => {
-      game.loadLevelmapFromFile(door.to, true, () => {
-        const newHero = this.heroEntity
-        if (newHero) {
-          newHero.x = door.spawnPos[0]
-          newHero.y = door.spawnPos[1]
-        }
-      })
-    })
+    hero.removeListener('steppedOnDoor', this._listeners.heroSteppedOnDoor)
+    hero.on('steppedOnDoor', this._listeners.heroSteppedOnDoor)
   }
 
-  getHeroEntity() {
-    return filterOne(
-      game.levelmap.layers.map(layer => filterOne(
-        layer.entitymap.entities, e => e instanceof HeroEntity
-      )),
-      Boolean
-    )
+  heroSteppedOnDoor(door) {
+    const oldLevelmap = this.levelmap
+
+    this.loadLevelmapFromFile(door.to, {
+      anim: true,
+      loadedCb: () => {
+        const newHero = new HeroEntity(this.levelmap)
+        this.setupHeroEntity(newHero)
+        newHero.x = door.spawnPos[0]
+        newHero.y = door.spawnPos[1]
+
+        const layer = this.levelmap.layers[door.spawnPos[2] || 0]
+        if (layer) {
+          layer.entitymap.entities.push(newHero)
+        } else {
+          throw new Error('Door targets nonexistant layer')
+        }
+
+        // Keep edit mode, if that was enabled.
+        if (oldLevelmap.editorMode) {
+          this.levelmap.editorMode = oldLevelmap.editorMode
+        }
+      }
+    })
   }
 
   draw() {
@@ -60,9 +78,11 @@ module.exports = class Game {
 
     // Make view follow hero --------------------------------------------------
 
-    const hero = this.getHeroEntity()
+    const hero = this.heroEntity
 
-    if ((levelmap.testMode || !levelmap.editorMode) && hero) {
+    if ((
+      !levelmap.editorMode || levelmap.editorMode === Levelmap.EDITOR_MODE_TEST
+    ) && hero) {
       levelmap.scrollX = (
         hero.x - (canvasTarget.width / levelmap.tileSize / 2) +
         Math.sin(Date.now() / 500 + 800) * 0.1
@@ -92,34 +112,54 @@ module.exports = class Game {
     }
   }
 
-  loadLevelmapFromFile(path, transition = true, initFn = null) {
+  loadLevelmapFromFile(path, {
+    transition = true, loadedCb = null, makeHero = false
+  } = {}) {
     this.levelmapPath = path
 
     const realPath = this.packagePath + path
 
-    let loadedCb = null
+    let endAnim = null
 
     return (transition ? this.levelTransition() : Promise.resolve())
-      .then(_loadedCb => {
-        loadedCb = _loadedCb
+      .then(_endAnim => {
+        endAnim = _endAnim
 
         return fsp.readFile(realPath)
       })
       .then(buf => JSON.parse(buf.toString()))
       .then(obj => {
-        this.levelmap.loadFromSaveObj(obj)
+        const levelmap = new Levelmap(this, 0, 0, this.tileAtlas)
+        levelmap.filePath = path
+        levelmap.loadFromSaveObj(obj)
+        this.loadLevelmap(levelmap)
 
-        const hero = this.getHeroEntity()
-        if (hero) {
+        if (makeHero) {
+          const hero = new HeroEntity(levelmap)
           this.setupHeroEntity(hero)
+
+          const [ x, y, layer ] = levelmap.defaultSpawnPos
+
+          hero.x = x
+          hero.y = y
+          levelmap.layers[layer].entitymap.entities.push(hero)
         }
 
-        if (initFn) {
-          initFn()
+        if (loadedCb) {
+          loadedCb()
         }
 
-        return (loadedCb ? loadedCb() : null)
+        return (endAnim ? endAnim() : null)
       })
+  }
+
+  loadLevelmap(levelmap) {
+    this.levelmap = levelmap
+
+    const hero = this.heroEntity
+    if (hero) {
+      this.setupHeroEntity(hero)
+    }
   }
 
   saveLevelmap() {
@@ -147,5 +187,12 @@ module.exports = class Game {
       this.anim = 'fadedOut'
       return () => waitUntilAnimDone('fadeIn')
     })
+  }
+
+  revealPath(p) {
+    // Open-reveal is a shell utility only available on macOS.
+    if (process.platform === 'darwin') {
+      spawn('open', ['-R', this.packagePath + p])
+    }
   }
 }

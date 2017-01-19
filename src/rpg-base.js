@@ -27,14 +27,17 @@ waitUntilLoaded(atlasImage).then(() => {
   game = new Game(canvasTarget)
   window.game = game
 
-  game.levelmap.tileAtlas = tileAtlas
+  game.tileAtlas = tileAtlas
 
-  // No transition
-  return game.loadLevelmapFromFile('/test/newertest.json', false)
+  return game.loadLevelmapFromFile('/test/newertest.json', {
+    transition: false,
+    makeHero: true
+  })
 }).then(() => {
   const hero = null
 
-  game.levelmap.editorMode = EDITOR_MODE_DOORMAP
+  game.levelmap.editorMode = 1
+  game.levelmap.activeEditDialog = game.levelmap.editInfoMenu
 
   const draw = function() {
     const canvasTarget = document.getElementById('target')

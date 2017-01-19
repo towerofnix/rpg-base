@@ -84,7 +84,12 @@ module.exports = class DoorMenu extends Menu {
     }
 
     const spawnPosItem = {
-      label: `Spawn: ${door.spawnPos[0]}, ${door.spawnPos[1]}`,
+      get label() {
+        return (
+          `Spawn: ${door.spawnPos[0]}, ${door.spawnPos[1]}` +
+          ` on layer ${door.spawnPos[2] || -1}`
+        )
+      },
       selectable: false
     }
 
@@ -129,22 +134,20 @@ module.exports = class DoorMenu extends Menu {
 
         const { game } = this.levelmap
 
-        const oldLevel = this.levelmap.game.levelmapPath
-
         this.emit('dialogRequested', null)
-        game.loadLevelmapFromFile(door.to, false).then(() => {
-          this.levelmap.editorMode = Levelmap.EDITOR_MODE_PICK_WORLD_TILE
-          this.levelmap.once('tilePicked', evt => {
-            // We don't want to change the spawn position if the user
-            // cancelled.
-            if (evt) {
-              door.spawnPos = evt[0]
-            }
 
-            game.loadLevelmapFromFile(oldLevel, false).then(() => {
-              this.emit('dialogRequested', this)
-            })
-          })
+        game.loadLevelmapFromFile(door.to, false).then(() => {
+          game.levelmap.editorMode = Levelmap.EDITOR_MODE_PICK_WORLD_TILE
+          return game.levelmap.pickTile()
+        }).then(evt => {
+          // We only want to change the spawn position of the user actually
+          // picked a tile.
+          if (evt) {
+            door.spawnPos = [evt.x, evt.y, evt.layer]
+          }
+
+          game.loadLevelmap(this.levelmap)
+          this.emit('dialogRequested', menu)
         })
       }},
       {label: 'Back', action: () => this.emit('dialogRequested', this)}
