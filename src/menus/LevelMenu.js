@@ -11,14 +11,14 @@ module.exports = class LevelMenu extends Menu {
   constructor(levelmap) {
     super(levelmap.game, [
       {label: 'Edit World..', action: () => {
-        levelmap.activeEditDialog = null
+        levelmap.game.setDialog(null)
         levelmap.editorMode = Levelmap.EDITOR_MODE_WORLD
       }},
       {label: 'Edit General Map Data..', action: () => this.generalMenu()},
       {label: 'Edit Layers..', action: () => this.layerMenu()},
       {label: 'Edit Doors..', action: () => this.doorMenu()},
       {label: 'Edit Doormap..', action: () => {
-        levelmap.activeEditDialog = null
+        levelmap.game.setDialog(null)
         levelmap.editorMode = Levelmap.EDITOR_MODE_DOORMAP
       }},
       {label: 'Resize Map..', action: () => this.resizeMenu()},
@@ -58,13 +58,13 @@ module.exports = class LevelMenu extends Menu {
       },
 
       action: () => {
-        levelmap.activeEditDialog = null
+        levelmap.game.setDialog(null)
         levelmap.pickTile().then(tile => {
-          levelmap.activeEditDialog = menu
-
           if (tile) {
             levelmap.defaultSpawnPos = [tile.x, tile.y, tile.layer]
           }
+
+          levelmap.game.setDialog(menu)
         })
       }
     }
@@ -80,17 +80,18 @@ module.exports = class LevelMenu extends Menu {
       defaultSpawnPosItem,
       {label: '', selectable: false},
 
-      {label: 'Back', action: () => levelmap.activeEditDialog = this}
+      {label: 'Back', action: () => levelmap.game.setDialog(this)}
     ])
 
     this.initSubmenu(menu)
   }
 
   initSubmenu(menu) {
-    menu.on('confirmed', () => this.levelmap.activeEditDialog = this)
-    menu.on('canceled', () => this.levelmap.activeEditDialog = this)
-    menu.on('dialogRequested', d => this.levelmap.activeEditDialog = d)
-    this.levelmap.activeEditDialog = menu
+    // Aliases ftw?
+    menu.on('confirmed', () => closeMenu())
+    menu.on('canceled', () => closeMenu())
+    menu.on('closed', () => closeMenu())
+    const closeMenu = this.levelmap.game.setDialog(menu)
   }
 
   save() {

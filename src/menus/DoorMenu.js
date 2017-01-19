@@ -134,9 +134,9 @@ module.exports = class DoorMenu extends Menu {
 
         const { game } = this.levelmap
 
-        this.emit('dialogRequested', null)
+        const reopenMenu = game.setDialog(null)
 
-        game.loadLevelmapFromFile(door.to, false).then(() => {
+        game.loadLevelmapFromFile(door.to, {transition: false}).then(() => {
           game.levelmap.editorMode = Levelmap.EDITOR_MODE_PICK_WORLD_TILE
           return game.levelmap.pickTile()
         }).then(evt => {
@@ -147,13 +147,13 @@ module.exports = class DoorMenu extends Menu {
           }
 
           game.loadLevelmap(this.levelmap)
-          this.emit('dialogRequested', menu)
+          reopenMenu()
         })
       }},
-      {label: 'Back', action: () => this.emit('dialogRequested', this)}
+      {label: 'Back', action: () => closeMenu()}
     ])
 
-    this.emit('dialogRequested', menu)
+    const closeMenu = this.game.setDialog(menu)
   }
 
   processPath(p) {

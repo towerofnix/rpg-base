@@ -25,6 +25,10 @@ module.exports = class Game {
     this.heroEntity = null
     this.tileAtlas = null
 
+    // The currently displayed dialog. It'll be ticked and drawn instead of
+    // everything else. Often a menu.
+    this.activeDialog = null
+
     this.anim = null
 
     // Dealing with javascript here, it's annoying.
@@ -34,11 +38,33 @@ module.exports = class Game {
   }
 
   tick() {
-    if (!this.anim) {
-      this.levelmap.tick()
+    // If there's a dialog being displayed, we'll tick it instead of everything
+    // else..
+    if (this.activeDialog) {
+      this.activeDialog.tick()
+    } else {
+      // The levelmap should only be ticked if we aren't transitioning to a new
+      // level, and we can (kind of) detect that by checking if the 'anim'
+      // property is set.
+      if (!this.anim) {
+        this.levelmap.tick()
+      }
     }
 
     this.keyListener.clearJustPressed()
+  }
+
+  setDialog(dialog) {
+    // Sets the dialog being displayed. This also returns a function to return
+    // to the old dialog.
+
+    const oldDialog = this.activeDialog
+
+    this.activeDialog = dialog
+
+    return () => {
+      this.activeDialog = oldDialog
+    }
   }
 
   setupHeroEntity(hero) {
@@ -74,6 +100,13 @@ module.exports = class Game {
   }
 
   draw() {
+    // If there's a dialog open, it should be rendered instead of everything
+    // else..
+    if (this.activeDialog) {
+      this.activeDialog.drawTo(this.canvasTarget)
+      return
+    }
+
     const { levelmap, canvasTarget } = this
 
     // Make view follow hero --------------------------------------------------

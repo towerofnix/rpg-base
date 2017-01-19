@@ -68,7 +68,7 @@ class Levelmap extends EventEmitter {
           return
         }
 
-        this.activeEditDialog = this.editInfoMenu
+        game.setDialog(this.editInfoMenu)
       }),
 
       makeKeyAction(game.keyListener, [219], () => { // [
@@ -124,12 +124,12 @@ class Levelmap extends EventEmitter {
           picker.tileCursor.x = x
           picker.tileCursor.y = y
 
-          picker.on('selected', id => {
-            this.activeEditDialog = null
-            this.hotbarTiles[i - 1] = id
-          })
+          const closePicker = this.game.setDialog(picker)
 
-          this.activeEditDialog = picker
+          picker.on('selected', id => {
+            this.hotbarTiles[i - 1] = id
+            closePicker()
+          })
         })
       )
     }
@@ -142,7 +142,7 @@ class Levelmap extends EventEmitter {
           // Workaround for "definitely in the editor, just no particular
           // editor..".. XXX
           this.editorMode = true
-          this.activeEditDialog = this.editInfoMenu
+          this.game.setDialog(this.editInfoMenu)
         } else {
           this.editorMode = EDITOR_MODE_TEST
         }
@@ -168,8 +168,6 @@ class Levelmap extends EventEmitter {
 
     this.editIsPlacingTiles = false
 
-    this.activeEditDialog = null
-
     this.editModeCanvas = document.createElement('canvas')
     this.editModeCanvas.width = game.canvasTarget.width
     this.editModeCanvas.height = game.canvasTarget.height
@@ -186,69 +184,65 @@ class Levelmap extends EventEmitter {
 
   drawTo(canvasTarget) {
     if (this.editorMode && this.editorMode !== EDITOR_MODE_TEST) {
-      if (this.activeEditDialog) {
-        this.activeEditDialog.drawTo(canvasTarget)
+      const ctx = canvasTarget.getContext('2d')
+
+      this.editModeCanvas.width = canvasTarget.width
+
+      if (this.editorMode === EDITOR_MODE_WORLD) {
+        this.editModeCanvas.height = canvasTarget.height - this.tileSize
       } else {
-        const ctx = canvasTarget.getContext('2d')
+        this.editModeCanvas.height = canvasTarget.height
+      }
 
-        this.editModeCanvas.width = canvasTarget.width
+      const ectx = this.editModeCanvas.getContext('2d')
+
+      ectx.clearRect(
+        0, 0, this.editModeCanvas.width, this.editModeCanvas.height
+      )
+
+      for (let layer of this.visibleEditorLayers) {
+        const { tilemap, wallmap, entitymap, doormap } = layer
+
+        let editorCanvas = this.editModeCanvas
+
+        if (
+          tilemap === this.selectedLayer.tilemap && this.jitterSelectedLayer
+        ) {
+          editorCanvas = document.createElement('canvas')
+          editorCanvas.width = canvasTarget.width
+          editorCanvas.height = canvasTarget.height
+        }
+
+        tilemap.drawTo(editorCanvas)
 
         if (this.editorMode === EDITOR_MODE_WORLD) {
-          this.editModeCanvas.height = canvasTarget.height - this.tileSize
-        } else {
-          this.editModeCanvas.height = canvasTarget.height
+          wallmap.drawTo(editorCanvas)
+          entitymap.drawTo(editorCanvas)
+        } else if (this.editorMode === EDITOR_MODE_DOORMAP) {
+          doormap.drawTo(editorCanvas)
         }
 
-        const ectx = this.editModeCanvas.getContext('2d')
-
-        ectx.clearRect(
-          0, 0, this.editModeCanvas.width, this.editModeCanvas.height
-        )
-
-        for (let layer of this.visibleEditorLayers) {
-          const { tilemap, wallmap, entitymap, doormap } = layer
-
-          let editorCanvas = this.editModeCanvas
-
-          if (
-            tilemap === this.selectedLayer.tilemap && this.jitterSelectedLayer
-          ) {
-            editorCanvas = document.createElement('canvas')
-            editorCanvas.width = canvasTarget.width
-            editorCanvas.height = canvasTarget.height
-          }
-
-          tilemap.drawTo(editorCanvas)
-
-          if (this.editorMode === EDITOR_MODE_WORLD) {
-            wallmap.drawTo(editorCanvas)
-            entitymap.drawTo(editorCanvas)
-          } else if (this.editorMode === EDITOR_MODE_DOORMAP) {
-            doormap.drawTo(editorCanvas)
-          }
-
-          if (editorCanvas !== this.editModeCanvas) {
-            ectx.drawImage(editorCanvas, Math.floor(Date.now() % 2), 0)
-          }
+        if (editorCanvas !== this.editModeCanvas) {
+          ectx.drawImage(editorCanvas, Math.floor(Date.now() % 2), 0)
         }
+      }
 
-        this.drawTileCursorTo(this.editModeCanvas)
+      this.drawTileCursorTo(this.editModeCanvas)
 
-        // Info dialog
-        const infoDialogCanvas = document.createElement('canvas')
-        infoDialogCanvas.width = canvasTarget.width
-        infoDialogCanvas.height = 24
-        this.editInfoDialog.drawTo(infoDialogCanvas)
-        ectx.drawImage(infoDialogCanvas, 0, 0)
+      // Info dialog
+      const infoDialogCanvas = document.createElement('canvas')
+      infoDialogCanvas.width = canvasTarget.width
+      infoDialogCanvas.height = 24
+      this.editInfoDialog.drawTo(infoDialogCanvas)
+      ectx.drawImage(infoDialogCanvas, 0, 0)
 
-        ctx.drawImage(
-          this.editModeCanvas,
-          0, canvasTarget.height - this.editModeCanvas.height
-        )
+      ctx.drawImage(
+        this.editModeCanvas,
+        0, canvasTarget.height - this.editModeCanvas.height
+      )
 
-        if (this.editorMode === EDITOR_MODE_WORLD) {
-          this.drawEditHotbarTo(canvasTarget)
-        }
+      if (this.editorMode === EDITOR_MODE_WORLD) {
+        this.drawEditHotbarTo(canvasTarget)
       }
     } else {
       for (let { tilemap, entitymap } of this.layers) {
@@ -324,15 +318,7 @@ class Levelmap extends EventEmitter {
     if (this.editorMode === EDITOR_MODE_TEST) {
       this.gameTick()
     } else {
-      if (this.activeEditDialog) {
-        this.activeEditDialog.tick()
-
-        // A drag from placing tiles should be stopped when the editor isn't
-        // "active" anymore.
-        this.editIsPlacingTiles = false
-      } else {
-        this.editorTick()
-      }
+      this.editorTick()
     }
 
     // Tick edit mode key actions.
@@ -499,9 +485,6 @@ class Levelmap extends EventEmitter {
   wallPressed(wallFlag) {
     // Called when a wall combo key is pressed (W+arrow). Toggles the edge of
     // the wall under the tile cursor.
-
-    // We don't want anything to happen if there's a menu open..
-    if (this.activeEditDialog) return
 
     const { wallmap } = this.selectedLayer
     
