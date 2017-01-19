@@ -93,15 +93,15 @@ module.exports = class DoorMenu extends Menu {
       selectable: false
     }
 
-    const menu = new Menu(this.levelmap.game, [
+    const menu = new Menu(this.game, [
       {label: `Door ${this.newDoors.indexOf(door) + 1}`, selectable: false},
       pathItem,
       spawnPosItem,
       {label: '', selectable: false},
       {label: 'Choose Path..', action: () => {
         const openSelection = dialog.showOpenDialog({
-          title: 'Open file',
-          defaultPath: this.levelmap.game.packagePath,
+          title: 'Choose Path',
+          defaultPath: this.game.packagePath,
           properties: ['openFile'],
           filters: [
             {name: 'Level Files', extensions: ['json']}
@@ -115,7 +115,7 @@ module.exports = class DoorMenu extends Menu {
 
         const newPath = openSelection[0]
 
-        const { valid, packagePath } = this.processPath(newPath)
+        const { valid, packagePath } = this.game.processPath(newPath)
 
         if (valid) {
           door.to = packagePath
@@ -154,16 +154,5 @@ module.exports = class DoorMenu extends Menu {
     ])
 
     const closeMenu = this.game.setDialog(menu)
-  }
-
-  processPath(p) {
-    if (p.startsWith(this.game.packagePath)) {
-      return {
-        valid: true,
-        packagePath: path.relative(this.game.packagePath, p)
-      }
-    } else {
-      return {valid: false}
-    }
   }
 }

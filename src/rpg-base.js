@@ -36,8 +36,7 @@ waitUntilLoaded(atlasImage).then(() => {
 }).then(() => {
   const hero = null
 
-  game.levelmap.editorMode = 1
-  game.setDialog(game.levelmap.editInfoMenu)
+  game.setDialog(game.gameEditMenu)
 
   const draw = function() {
     const canvasTarget = document.getElementById('target')

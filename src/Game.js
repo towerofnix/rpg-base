@@ -1,6 +1,7 @@
 const Levelmap = require('./Levelmap')
 const KeyListener = require('./KeyListener')
 const HeroEntity = require('./entities/HeroEntity')
+const GameEditMenu = require('./menus/GameEditMenu')
 const { filterOne } = require('./util')
 
 const fsp = require('fs-promise')
@@ -28,6 +29,8 @@ module.exports = class Game {
     // The currently displayed dialog. It'll be ticked and drawn instead of
     // everything else. Often a menu.
     this.activeDialog = null
+
+    this.gameEditMenu = new GameEditMenu(this)
 
     this.anim = null
 
@@ -226,6 +229,17 @@ module.exports = class Game {
     // Open-reveal is a shell utility only available on macOS.
     if (process.platform === 'darwin') {
       spawn('open', ['-R', this.packagePath + p])
+    }
+  }
+
+  processPath(p) {
+    if (p.startsWith(this.packagePath)) {
+      return {
+        valid: true,
+        packagePath: path.relative(this.packagePath, p)
+      }
+    } else {
+      return {valid: false}
     }
   }
 }
