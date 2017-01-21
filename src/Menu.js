@@ -41,6 +41,8 @@ module.exports = class Menu extends Dialog {
 
     ctx.font = '14px manaspace'
 
+    let lineNum = 0
+
     for (let i = 0; i < this.items.length; i++) {
       const { label, selectable = true } = this.items[i]
 
@@ -58,7 +60,12 @@ module.exports = class Menu extends Dialog {
         }
       }
 
-      ctx.fillText(label, 8, (i + 1) * 14 + 8)
+      const lines = label.split('\n')
+
+      for (let line of lines) {
+        ctx.fillText(line, 8, (lineNum + 1) * 14 + 8)
+        lineNum++
+      }
     }
 
     this.blink = (this.blink + 1) % 6

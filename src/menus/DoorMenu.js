@@ -1,9 +1,8 @@
 const Menu = require('../Menu')
 const Levelmap = require('../Levelmap')
+const { filterOne } = require('../util')
 
 const path = require('path')
-const { filterOne } = require('../util')
-const { dialog } = require('electron').remote
 
 module.exports = class DoorMenu extends Menu {
   // TODO: Removing a door should remove all of its references in the doormap,
@@ -99,32 +98,16 @@ module.exports = class DoorMenu extends Menu {
       spawnPosItem,
       {label: '', selectable: false},
       {label: 'Choose Path..', action: () => {
-        const openSelection = dialog.showOpenDialog({
+        const packagePath = this.game.pickFile({
           title: 'Choose Path',
-          defaultPath: this.game.packagePath,
-          properties: ['openFile'],
           filters: [
             {name: 'Level Files', extensions: ['json']}
           ]
         })
 
-        if (typeof openSelection === 'undefined') {
-          // Canceled, no file picked
-          return
-        }
-
-        const newPath = openSelection[0]
-
-        const { valid, packagePath } = this.game.processPath(newPath)
-
-        if (valid) {
+        if (packagePath) {
           door.to = packagePath
           pathItem.label = packagePath
-        } else {
-          console.error(
-            'Invalid door path: ' + newPath +
-            '\nMaybe it isn\'t in the game package folder?'
-          )
         }
       }},
       {label: 'Choose Spawn..', action: () => {

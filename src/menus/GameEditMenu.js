@@ -1,35 +1,60 @@
 const Menu = require('../Menu')
-const { dialog } = require('electron').remote
+const Levelmap = require('../Levelmap')
+const ConfirmMenu = require('./ConfirmMenu')
 
 module.exports = class GameEditMenu extends Menu {
   constructor(game) {
     super(game, [
-      {label: 'Open Level..', action: () => this.openLevel()}
+      {label: 'General Game Data..', action: () => this.generalMenu()},
+      {label: 'Open Level..', action: () => this.openLevel()},
+      {label: 'New Level..', action: () => this.newLevel()}
     ])
   }
 
+  generalMenu() {
+    const closeMenu = this.game.setDialog(new Menu(game, [
+      {label: 'Reveal game package path', action: () => {
+        this.game.revealFolder('.')
+      }, selectable: (process.platform === 'darwin')},
+      {label: 'Back', action: () => closeMenu()}
+    ]))
+  }
+
   openLevel() {
-    const openSelection = dialog.showOpenDialog({
+    const packagePath = this.game.pickFile({
       title: 'Open Level',
-      defaultPath: this.game.packagePath,
-      properties: ['openFile'],
       filters: [
         {name: 'Level Files', extensions: ['json']}
       ]
     })
 
-    if (typeof openSelection === 'undefined') {
-      // Cancelled, no file picked
-      return
-    }
-
-    const { valid, packagePath } = this.game.processPath(openSelection[0])
-
-    if (valid) {
+    if (packagePath) {
       this.game.setDialog(null)
       this.game.loadLevelmapFromFile(packagePath, {
         transition: false,
         makeHero: true
+      }).then(() => {
+        this.game.setDialog(this.game.levelmap.editInfoMenu)
+      })
+    }
+  }
+
+  newLevel() {
+    const packagePath = this.game.pickSaveFile({
+      filters: [
+        {name: 'Level File', extensions: ['json']}
+      ]
+    })
+
+    if (packagePath) {
+      const levelmap = new Levelmap(this.game, 10, 10, this.game.tileAtlas)
+      levelmap.filePath = packagePath
+      this.game.loadLevelmap(levelmap)
+      this.game.saveLevelmap().then(() => {
+        return this.game.loadLevelmapFromFile(packagePath, {
+          transition: false,
+          makeHero: true
+        })
       }).then(() => {
         this.game.setDialog(this.game.levelmap.editInfoMenu)
       })

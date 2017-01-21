@@ -29,13 +29,6 @@ waitUntilLoaded(atlasImage).then(() => {
 
   game.tileAtlas = tileAtlas
 
-  return game.loadLevelmapFromFile('/test/newertest.json', {
-    transition: false,
-    makeHero: true
-  })
-}).then(() => {
-  const hero = null
-
   game.setDialog(game.gameEditMenu)
 
   const draw = function() {

@@ -8,9 +8,16 @@ module.exports = class Entity extends EventEmitter {
     this.levelmap = levelmap
     this.x = 0
     this.y = 0
+    this.lastX = 0
+    this.lastY = 0
   }
 
-  tick() {}
+  tick() {
+    // Override me! (And probably call super.tick.)
+
+    this.lastX = this.x
+    this.lastY = this.y
+  }
 
   fixPosition() {
     // Stupid math issues cause numbers to become weird decimal versions of
@@ -37,5 +44,9 @@ module.exports = class Entity extends EventEmitter {
     return filterOne(this.levelmap.layers, layer => (
      layer.entitymap.entities.includes(this)
     ))
+  }
+
+  get moved() {
+    return (this.lastX !== this.x) || (this.lastY !== this.y)
   }
 }

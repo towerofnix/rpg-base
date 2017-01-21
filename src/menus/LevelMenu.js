@@ -4,6 +4,7 @@ const Levelmap = require('../Levelmap')
 const LayerMenu = require('./LayerMenu')
 const WorldResizeMenu = require('./WorldResizeMenu')
 const DoorMenu = require('./DoorMenu')
+const { confirm } = require('./ConfirmMenu')
 
 const fsp = require('fs-promise')
 
@@ -22,7 +23,9 @@ module.exports = class LevelMenu extends Menu {
         levelmap.editorMode = Levelmap.EDITOR_MODE_DOORMAP
       }},
       {label: 'Resize Map..', action: () => this.resizeMenu()},
-      {label: 'Save Map', action: () => this.save()}
+      {label: 'Test', action: () => this.test()},
+      {label: 'Save', action: () => this.save()},
+      {label: 'Close..', action: () => this.close()}
     ])
 
     this.levelmap = levelmap
@@ -58,21 +61,35 @@ module.exports = class LevelMenu extends Menu {
       },
 
       action: () => {
-        levelmap.game.setDialog(null)
+        const reopenMenu = this.game.setDialog(null)
         levelmap.pickTile().then(tile => {
           if (tile) {
             levelmap.defaultSpawnPos = [tile.x, tile.y, tile.layer]
           }
 
-          levelmap.game.setDialog(menu)
+          reopenMenu()
         })
+      }
+    }
+
+    const bgmItem = {
+      get label() {
+        return levelmap.bgm || '(None set)'
+      },
+
+      action: () => {
+        const packagePath = this.game.pickFile()
+
+        if (packagePath) {
+          this.levelmap.bgm = packagePath
+        }
       }
     }
 
     const menu = new Menu(levelmap.game, [
       {label: 'File path:', selectable: false},
       {label: levelmap.filePath, action: () => {
-        levelmap.game.revealPath(levelmap.filePath)
+        this.game.revealPath(levelmap.filePath)
       }, selectable: (process.platform === 'darwin')},
       {label: '', selectable: false},
 
@@ -80,10 +97,14 @@ module.exports = class LevelMenu extends Menu {
       defaultSpawnPosItem,
       {label: '', selectable: false},
 
-      {label: 'Back', action: () => levelmap.game.setDialog(this)}
+      {label: 'Background music:', selectable: false},
+      bgmItem,
+      {label: '', selectable: false},
+
+      {label: 'Back', action: () => closeMenu()}
     ])
 
-    this.initSubmenu(menu)
+    const closeMenu = this.initSubmenu(menu)
   }
 
   initSubmenu(menu) {
@@ -91,7 +112,13 @@ module.exports = class LevelMenu extends Menu {
     menu.on('confirmed', () => closeMenu())
     menu.on('canceled', () => closeMenu())
     menu.on('closed', () => closeMenu())
-    const closeMenu = this.levelmap.game.setDialog(menu)
+    const closeMenu = this.game.setDialog(menu)
+    return closeMenu
+  }
+
+  test() {
+    this.game.setDialog(null)
+    this.levelmap.enableTestMode()
   }
 
   save() {
@@ -102,5 +129,40 @@ module.exports = class LevelMenu extends Menu {
       .catch(err => {
         console.error('Failed to save!', err)
       })
+  }
+
+  close() {
+    const discardChangesItem = {
+      label: 'Yes, discard changes', action: () => {
+        this.levelmap.emit('closed', this.levelmap)
+      }
+    }
+
+    const saveChangesItem = {
+      label: 'Yes, save changes', action: () => {
+        this.game.saveLevelmap().then(() => {
+          this.levelmap.emit('closed', this.levelmap)
+        })
+      }
+    }
+
+    const cancelItem = {
+      label: 'No, cancel', action: () => {
+        closeMenu()
+      }
+    }
+
+    const menu = new Menu(this.game, [
+      {label: 'Close the level?', selectable: false},
+      {label: 'Discards unsaved changes.', selectable: false},
+      {label: '', selectable: false},
+      discardChangesItem,
+      saveChangesItem,
+      cancelItem
+    ])
+
+    menu.selectedIndex = menu.items.indexOf(saveChangesItem)
+
+    const closeMenu = this.game.setDialog(menu)
   }
 }

@@ -12,4 +12,9 @@ module.exports = class Dialog extends EventEmitter {
     ctx.fillStyle = 'black'
     ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height)
   }
+
+  show() {
+    // Override me! Called when set as the active dialog on Game.
+    // (See game.setDialog.)
+  }
 }

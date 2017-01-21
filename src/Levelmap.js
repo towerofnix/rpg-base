@@ -139,12 +139,14 @@ class Levelmap extends EventEmitter {
         // ^T toggles test mode.
 
         if (this.editorMode === EDITOR_MODE_TEST) {
-          // Workaround for "definitely in the editor, just no particular
-          // editor..".. XXX
-          this.editorMode = true
+          this.disableTestMode()
+
+          // The editor mode will generally be changed by this menu, and the
+          // game won't tick the editor while a dialog is open, so we only need
+          // to set the dialog to the menu to pass control to it.
           this.game.setDialog(this.editInfoMenu)
         } else {
-          this.editorMode = EDITOR_MODE_TEST
+          this.enableTestMode()
         }
       })
     ]
@@ -516,25 +518,54 @@ class Levelmap extends EventEmitter {
     )
   }
 
+  enableTestMode() {
+    // Enables test mode. Emits the 'testModeEnabled' event.
+
+    this.editorMode = EDITOR_MODE_TEST
+    this.emit('testModeEnabled')
+  }
+
+  disableTestMode() {
+    // Disables test mode. Emits the 'testModeDisabled' event.
+
+    this.editorMode = EDITOR_MODE_DISABLED
+    this.emit('testModeDisabled')
+  }
+
+  setBackgroundMusicPath(bgm) {
+    // Sets the background music path of this level.
+
+    this.bgm = bgm
+
+    this.emit('bgmUpdated', bgm)
+  }
+
   resize(newWidth, newHeight) {
-    for (let { tilemap, wallmap } of this.layers) {
+    // Resizes the level. Tries to keep each old item's position so that tiles,
+    // walls and such don't get moved/misaligned.
+
+    for (let { tilemap, wallmap, doormap } of this.layers) {
       const newTiles = []
       const newWalls = []
+      const newDoors = []
 
       for (let y = 0; y < newHeight; y++) {
         for (let x = 0; x < newWidth; x++) {
           if (x < this.width && y < this.height) {
             newTiles.push(tilemap.getItemAt(x, y))
             newWalls.push(wallmap.getItemAt(x, y))
+            newDoors.push(doormap.getItemAt(x, y))
           } else {
             newTiles.push(0x00)
             newWalls.push(0b0000)
+            newDoors.push(0)
           }
         }
       }
 
       tilemap.items = newTiles
       wallmap.items = newWalls
+      doormap.items = newDoors
     }
 
     this.width = newWidth
@@ -584,6 +615,7 @@ class Levelmap extends EventEmitter {
     return {
       width: this.width,
       height: this.height,
+      bgm: this.bgm,
       layers: this.layers.map(layer => ({
         tiles: layer.tilemap.items.slice(0),
         walls: layer.wallmap.items.slice(0),
@@ -606,11 +638,13 @@ class Levelmap extends EventEmitter {
     const {
       width = 10, height = 10,
       layers = [], doors = [],
-      defaultSpawnPos = []
+      defaultSpawnPos = [],
+      bgm = ''
     } = save
 
     this.width = width
     this.height = height
+    this.bgm = bgm
 
     this.layers = layers.map(layerObj => {
       const layer = this.createLayer()

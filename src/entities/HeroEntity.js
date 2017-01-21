@@ -40,7 +40,7 @@ module.exports = class HeroEntity extends Entity {
       }
     }
 
-    if (Number.isInteger(this.x) && Number.isInteger(this.y)) {
+    if (this.moved && Number.isInteger(this.x) && Number.isInteger(this.y)) {
       const door = this.layer.doormap.getItemAt(this.x, this.y)
 
       if (door) {
@@ -49,5 +49,7 @@ module.exports = class HeroEntity extends Entity {
         this.emit('steppedOnDoor', doorData)
       }
     }
+
+    super.tick()
   }
 }
