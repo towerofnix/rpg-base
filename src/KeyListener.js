@@ -33,4 +33,11 @@ module.exports = class KeyListener {
 
     this.justPressedKeys = {}
   }
+
+  isActionPressed() {
+    // Returns whether or not an "action" key is pressed. Use this for
+    // consistency across user interfaces. Uses isJustPressed.
+
+    return [32, 13].some(k => this.isJustPressed(k))
+  }
 }

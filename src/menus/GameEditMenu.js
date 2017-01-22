@@ -1,6 +1,5 @@
 const Menu = require('../Menu')
 const Levelmap = require('../Levelmap')
-const ConfirmMenu = require('./ConfirmMenu')
 
 module.exports = class GameEditMenu extends Menu {
   constructor(game) {

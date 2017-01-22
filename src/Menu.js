@@ -108,9 +108,9 @@ module.exports = class Menu extends Dialog {
 
     this.constraints(direction)
 
-    // If the space or enter key is pressed, run the selected menu item's
+    // If the action key is pressed, run the selected menu item's
     // action.
-    if (keyListener.isJustPressed(32) || keyListener.isJustPressed(13)) {
+    if (keyListener.isActionPressed()) {
       const { action } = this.selectedItem
 
       if (action) {

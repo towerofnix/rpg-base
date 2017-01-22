@@ -1,4 +1,5 @@
 const Entity = require('../Entity')
+const TalkDialog = require('../TalkDialog')
 
 module.exports = class HeroEntity extends Entity {
   tick() {
@@ -48,6 +49,17 @@ module.exports = class HeroEntity extends Entity {
 
         this.emit('steppedOnDoor', doorData)
       }
+    }
+
+    if (keyListener.isPressed(192)) { // tick (`), for testing
+      const game = this.levelmap.game
+      const options = (msg, speed) => ({
+        msg: msg, textSpeed: speed,
+        portrait: 'face/avjoe.png'
+      })
+
+      TalkDialog.prompt(game, options('Hello..?', 8))
+        .then(() => TalkDialog.prompt(game, options('Nobody\'s home..', 2)))
     }
 
     super.tick()

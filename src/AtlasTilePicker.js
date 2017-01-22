@@ -8,12 +8,7 @@ module.exports = class AtlasTilePicker extends Dialog {
 
     this.tileAtlas = tileAtlas
     this.tileCursor = new TileCursor(this.tileAtlas.textureSize, keyListener)
-
-    this.keyActions = [
-      makeKeyAction(keyListener, [32], () => {
-        this.emit('selected', this.selectedIndex)
-      })
-    ]
+    this.keyListener = keyListener
   }
 
   drawTo(canvasTarget) {
@@ -61,7 +56,9 @@ module.exports = class AtlasTilePicker extends Dialog {
       this.tileCursor.y = 0
     }
 
-    for (let tick of this.keyActions) tick()
+    if (this.keyListener.isActionPressed()) {
+      this.emit('selected', this.selectedIndex)
+    }
   }
 
   get selectedIndex() {

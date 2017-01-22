@@ -1,6 +1,7 @@
 const Levelmap = require('./Levelmap')
 const KeyListener = require('./KeyListener')
 const HeroEntity = require('./entities/HeroEntity')
+const Dialog = require('./Dialog')
 const GameEditMenu = require('./menus/GameEditMenu')
 const { confirm } = require('./menus/ConfirmMenu')
 const { filterOne } = require('./util')
@@ -153,11 +154,15 @@ module.exports = class Game {
   }
 
   draw() {
-    // If there's a dialog open, it should be rendered instead of everything
-    // else..
+    // Dialog (replace) -------------------------------------------------------
+
+    // If there's a dialog open, and its render mode is REPLACE, it should be
+    // rendered instead of everything else.
     if (this.activeDialog) {
-      this.activeDialog.drawTo(this.canvasTarget)
-      return
+      if (this.activeDialog.renderMode === Dialog.DIALOG_MODE_REPLACE) {
+        this.activeDialog.drawTo(this.canvasTarget)
+        return
+      }
     }
 
     const { levelmap, canvasTarget } = this
@@ -195,6 +200,18 @@ module.exports = class Game {
       const alpha = (1 - (1 / 1000) * (Date.now() - this.animTime))
       ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`
       ctx.fillRect(0, 0, canvasTarget.width, canvasTarget.height)
+    }
+
+    // Dialog (overlay) -------------------------------------------------------
+
+    // If there's a dialog open, and its render mode is OVERLAY, it should be
+    // rendered on top of everything else. Since everything else is already
+    // drawn by this point, now's the time to render the dialog..
+
+    if (this.activeDialog) {
+      if (this.activeDialog.renderMode === Dialog.DIALOG_MODE_OVERLAY) {
+        this.activeDialog.drawTo(canvasTarget)
+      }
     }
   }
 
