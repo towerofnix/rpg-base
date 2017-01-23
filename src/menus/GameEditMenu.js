@@ -1,9 +1,36 @@
 const Menu = require('../Menu')
 const Levelmap = require('../Levelmap')
+const TalkDialog = require('../TalkDialog')
+const language = require('../language')
 
 module.exports = class GameEditMenu extends Menu {
   constructor(game) {
     super(game, [
+      {label: 'Script Test..', action: () => {
+        const hooks = language(`
+
+main() {
+  -- Comments, yay
+  talk-dialog('Hello..?' :: talk-speed=30)
+}
+
+`, {
+          customBuiltins: {
+            'talk-dialog': (opts, msg) => {
+              const {
+                'talk-speed': talkSpeed = 1, portrait = ''
+              } = (opts || {})
+              return TalkDialog.prompt(game, {
+                msg: String(msg),
+                talkSpeed: Number(talkSpeed),
+                portrait: String(portrait)
+              })
+            }
+          }
+        })
+
+        hooks.main()
+      }},
       {label: 'General Game Data..', action: () => this.generalMenu()},
       {label: 'Open Level..', action: () => this.openLevel()},
       {label: 'New Level..', action: () => this.newLevel()}
