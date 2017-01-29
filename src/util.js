@@ -37,6 +37,38 @@ module.exports.filterOne = function(arr, fn) {
   return null
 }
 
+module.exports.asyncEach = function(arr, fn) {
+  // Asyncrhonously loops through each item of an array and applies a function
+  // to it. Loops in order of index, and doesn't run more the function on more
+  // than one item at a time.
+
+  const res = []
+
+  const helper = function(i) {
+    let shouldCancel = false
+
+    const cancel = function() {
+      shouldCancel = true
+    }
+
+    return Promise.resolve(fn(arr[i], cancel)).then(x => {
+      if (shouldCancel) {
+        return
+      }
+
+      res.push(x)
+
+      if (i < arr.length - 1) {
+        return helper(i + 1)
+      } else {
+        return res
+      }
+    })
+  }
+
+  return (arr.length === 0 ? Promise.resolve([]) : helper(0))
+}
+
 module.exports.makeKeyAction = function(keyListener, combo, action) {
   // Makes a key action. Run the return function every tick. If the key combo
   // you passed has just been completed, it'll run the action you passed.

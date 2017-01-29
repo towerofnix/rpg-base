@@ -2,7 +2,10 @@
 // Actually it only exists for the cool level.
 // Call it Scriptscript since you use it to script scripts.
 
+const { asyncEach } = require('./util')
+
 const EventEmitter = require('events')
+const fsp = require('fs-promise')
 const { makeParser } = require('../lib/syn/Syn')
 
 const isWhitespace = char => (char === ' ' || char === '\n')
@@ -19,7 +22,7 @@ const parser = makeParser({
     Identifier(syn) {
       const isValid = char => (
         char && !(isWhitespace(char) || [
-          '(', ')', '{', '}', '[', ']', '\'', '"', '='
+          '(', ')', '{', '}', '[', ']', '\'', '"', '=', '.', '>', '<'
         ].includes(char)))
 
       while (syn.code[syn.i] && isValid(syn.code[syn.i])) {
@@ -71,20 +74,48 @@ const parser = makeParser({
     StringLiteral(syn) {
       syn.parsePastString('\'')
 
+      let str = ''
+
       while (syn.code[syn.i] && syn.code[syn.i] !== '\'') {
+        if (syn.code[syn.i] === '\\') {
+          if (syn.code[syn.i + 1] === '\'') {
+            str += '\''
+            syn.i += 2
+            continue
+          } else {
+            str += '\\'
+          }
+        } else {
+          str += syn.code[syn.i]
+        }
+
         syn.i++
       }
 
       syn.parsePastString('\'')
 
-      syn.data.string = syn.code.slice(syn.startI + 1, syn.i - 1)
+      syn.data.string = str
+    },
+
+    PropertyGet(syn) {
+      // A property get. It follows this syntax:
+      //
+      // '[' Expression Identifier ']'
+
+      syn.parsePastString('[')
+      syn.data.expression = syn.parsePast('Expression').data.expression
+      syn.parsePast('Whitespace')
+      syn.data.key = syn.parsePast('Identifier').data.string
+      syn.parsePast('Whitespace')
+      syn.parsePastString(']')
     },
 
     Expression(syn) {
       // An expression. Currently only supports Identifiers.
 
       syn.data.expression = syn.tryToParsePast(
-        'FunctionCall', 'StringLiteral', 'NumberLiteral', 'Identifier'
+        'FunctionCall', 'StringLiteral', 'NumberLiteral', 'PropertyGet',
+        'Identifier'
       )
     },
 
@@ -149,6 +180,51 @@ const parser = makeParser({
       syn.data.expression = syn.parsePast('Expression').data.expression
     },
 
+    VariableChange(syn) {
+      // A variable change. It follows this syntax:
+      //
+      // Identifier => Expression
+
+      syn.data.name = syn.parsePast('Identifier').data.string
+      syn.parsePast('Whitespace')
+      syn.parsePastString('=>')
+      syn.parsePast('Whitespace')
+
+      syn.data.expression = syn.parsePast('Expression').data.expression
+    },
+
+    CodeBlock(syn) {
+      // A code block. It follows this syntax:
+      //
+      // '{' Statement.. '}'
+
+      syn.data.statements = []
+
+      syn.parsePastString('{')
+      syn.parsePast('Whitespace')
+
+      while (syn.code[syn.i] && syn.code[syn.i] !== '}') {
+        const statement = syn.parsePast('Statement').data.statement
+        syn.data.statements.push(statement)
+
+        syn.parsePast('Whitespace')
+      }
+
+      syn.parsePastString('}')
+    },
+
+    IfStatement(syn) {
+      // An if statement. It follows this syntax:
+      //
+      // 'if' Expression '{' Statement.. '}'
+
+      syn.parsePastString('if')
+      syn.parsePast('Whitespace')
+      syn.data.test = syn.parsePast('Expression').data.expression
+      syn.parsePast('Whitespace')
+      syn.data.statements = syn.parsePast('CodeBlock').data.statements
+    },
+
     ReturnStatement(syn) {
       // A return statement. It follows this syntax:
       //
@@ -178,19 +254,18 @@ const parser = makeParser({
       // A statement.
 
       syn.data.statement = syn.tryToParsePast(
-        'VariableSet', 'FunctionCall', 'ReturnStatement', 'LineComment'
+        'LineComment', 'ProcedureDefinition', 'VariableSet', 'VariableChange',
+        'FunctionCall', 'IfStatement', 'ReturnStatement'
       )
     },
 
     ProcedureDefinition(syn) {
       // A procedure definition. It follows this syntax:
       //
-      // Identifier '(' Identifier.. ')'
-      //  '{' Statement.. '}'
+      // Identifier '(' Identifier.. ')' CodeBlock
 
       syn.data.name = syn.parsePast('Identifier').data.string
       syn.data.parameters = []
-      syn.data.statements = []
 
       syn.parsePast('Whitespace')
       syn.parsePastString('(')
@@ -205,29 +280,21 @@ const parser = makeParser({
 
       syn.parsePastString(')')
       syn.parsePast('Whitespace')
-      syn.parsePastString('{')
-      syn.parsePast('Whitespace')
 
-      while (syn.code[syn.i] && syn.code[syn.i] !== '}') {
-        const statement = syn.parsePast('Statement').data.statement
-        syn.data.statements.push(statement)
-
-        syn.parsePast('Whitespace')
-      }
-
-      syn.parsePastString('}')
+      syn.data.statements = syn.parsePast('CodeBlock').data.statements
     },
 
     ProgramDefinition(syn) {
-      // A program definition. It's made up of procedure definitions.
+      // A program definition. It's made up of procedure definitions and
+      // statements.
 
-      syn.data.procedureDefs = []
+      syn.data.statements = []
 
       syn.parsePast('Whitespace')
 
       while (syn.code[syn.i]) {
-        const procDef = syn.parsePast('ProcedureDefinition')
-        syn.data.procedureDefs.push(procDef)
+        const statement = syn.parsePast('Statement')
+        syn.data.statements.push(statement.data.statement)
 
         syn.parsePast('Whitespace')
       }
@@ -235,37 +302,16 @@ const parser = makeParser({
   }
 })
 
-const LString = class LString {
-  constructor(str) {
-    this.str = String(str)
-  }
-
-  toString() {
-    return this.str
-  }
-}
-
-const LNumber = class LNumber {
-  constructor(num) {
-    this.num = Number(num)
-  }
-
-  toString() {
-    return this.num.toString()
-  }
-
-  valueOf() {
-    return this.num
-  }
-}
-
 const LEnvironment = class LEnvironment extends EventEmitter {
   constructor() {
     super()
 
     this.vars = {}
 
-    this.returnValue = null
+    // This is a (less) magical hidden internal global variable object. It
+    // stores data that can be accessed from ALL (child) language calls -
+    // things like the global import path.
+    this.globalData = {}
   }
 
   returnVal(value) {
@@ -273,59 +319,41 @@ const LEnvironment = class LEnvironment extends EventEmitter {
   }
 }
 
-const asyncEach = function(arr, fn) {
-  const res = []
-
-  const helper = function(i) {
-    let shouldCancel = false
-
-    const cancel = function() {
-      shouldCancel = true
-    }
-
-    return Promise.resolve(fn(arr[i], cancel)).then(x => {
-      if (shouldCancel) {
-        return
-      }
-
-      res.push(x)
-
-      if (i < arr.length - 1) {
-        return helper(i + 1)
-      } else {
-        return res
-      }
-    })
+const LVariable = class LVariable {
+  constructor(val) {
+    this.value = val
   }
-
-  return (arr.length === 0 ? Promise.resolve([]) : helper(0))
 }
 
-const interpret = function(program, { customBuiltins = {}} = {}) {
-  const vars = {}
+const interpret = function(program, { globalData = {} } = {}) {
+  const {
+    customBuiltins = {}
+  } = globalData
 
-  const hooks = {}
   const builtins = Object.assign({
-    'js-console-log': (opts, lstr) => {
-      console.log(lstr.toString())
+    'import': (kwargs, [ path ], { globalData }) => {
+      const { importPath = '' } = globalData
+
+      return fsp.readFile(importPath + path).then((code) => {
+
+        // We want imported code to have the same globalData as this code, so
+        // we'll set that on the env..
+        return getHooks(code.toString(), {globalData})
+      })
     },
 
-    'concat': (opts, ...lstrs) => {
-      return new LString(lstrs.map(s => s.toString()).reduce((a, b) => a + b))
-    },
-
-    'var-set': (opts, name, value) => {
-      vars[name] = value
-    },
-
-    'var-get': (opts, name) => {
-      return vars[name]
-    },
-
-    'waitms': (opts, ms) => {
+    'waitms': (kwargs, [ ms ]) => {
       return new Promise(res => {
         setTimeout(() => res(), ms)
       })
+    },
+
+    'call': (kwargs, [ fn, ...args ], { globalData }) => {
+      if (!(fn instanceof Function)) {
+        throw new Error(`Scriptscript \`call\` called with non-function ${fn}`)
+      }
+
+      return fn(kwargs, args, {globalData})
     }
   }, customBuiltins)
 
@@ -333,18 +361,18 @@ const interpret = function(program, { customBuiltins = {}} = {}) {
     if (expression.type === 'Identifier') {
       const name = expression.data.string
       if (env.vars.hasOwnProperty(name)) {
-        return env.vars[name]
+        return env.vars[name].value
       } else {
         throw new Error(`No variable exists by name ${name}`)
       }
     }
 
     if (expression.type === 'StringLiteral') {
-      return new LString(expression.data.string)
+      return expression.data.string
     }
 
     if (expression.type === 'NumberLiteral') {
-      return new LNumber(expression.data.number)
+      return expression.data.number
     }
 
     if (expression.type === 'FunctionCall') {
@@ -365,14 +393,26 @@ const interpret = function(program, { customBuiltins = {}} = {}) {
           })
         }))
         .then(() => {
-          if (hooks.hasOwnProperty(name)) {
-            return hooks[name](evaluatedKeywordArgs, ...evaluatedArgs)
+          if (env.vars.hasOwnProperty(name)) {
+            const hook = env.vars[name].value
+            if (hook instanceof Function) {
+              return hook(evaluatedKeywordArgs, evaluatedArgs, env)
+            } else {
+              throw new Error(`Variable ${name} is not a function`)
+            }
           } else if (builtins.hasOwnProperty(name)) {
-            return builtins[name](evaluatedKeywordArgs, ...evaluatedArgs)
+            return builtins[name](evaluatedKeywordArgs, evaluatedArgs, env)
           } else {
             throw new Error(`No function or procedure exists by name ${name}`)
           }
         })
+    }
+
+    if (expression.type === 'PropertyGet') {
+      return (
+        Promise.resolve(evaluateExpression(expression.data.expression, env))
+          .then(obj => obj[expression.data.key])
+      )
     }
   }
 
@@ -381,8 +421,22 @@ const interpret = function(program, { customBuiltins = {}} = {}) {
       return Promise.resolve(
         evaluateExpression(statement.data.expression, env)
       ).then(value => {
-        env.vars[statement.data.name] = value
+        env.vars[statement.data.name] = new LVariable(value)
       })
+    }
+
+    if (statement.type === 'VariableChange') {
+      const name = statement.data.name
+
+      if (env.vars[name]) {
+        return Promise.resolve(
+          evaluateExpression(statement.data.expression, env)
+        ).then(value => {
+          env.vars[name].value = value
+        })
+      } else {
+        throw new Error(`Attempt to change nonexistant variable ${name}?`)
+      }
     }
 
     if (statement.type === 'ReturnStatement') {
@@ -393,52 +447,93 @@ const interpret = function(program, { customBuiltins = {}} = {}) {
       })
     }
 
+    if (statement.type === 'IfStatement') {
+      return Promise.resolve(
+        evaluateExpression(statement.data.test, env)
+      ).then(value => {
+        // urgh, here comes the JS truthy-ness
+        if (value) {
+          return asyncEach(statement.data.statements, statement => {
+            return evaluateStatement(statement, env)
+          })
+        }
+      })
+    }
+
+    if (statement.type === 'ProcedureDefinition') {
+      // Could do this but we *kind of* want hoisting even though hoisting is
+      // $BAD$..
+      //const parentEnvVars = Object.assign({}, env.vars)
+      const parentEnvVars = env.vars
+
+      const hook = (obj = {}, args = []) => {
+        const procEnv = new LEnvironment()
+        procEnv.globalData = globalData
+        Object.assign(procEnv.vars, parentEnvVars)
+
+        let cancel = null
+        let returnValue
+
+        procEnv.on('returned', value => {
+          if (cancel) {
+            cancel()
+            returnValue = value
+          }
+        })
+
+        if (Object.keys(obj).length) {
+          console.warn(
+            'Keyword arguments cannot be passed to user procedures yet!' +
+            `(From ${statement.data.name} call)`
+          )
+        }
+
+        const params = statement.data.parameters
+        for (let i = 0; i < args.length && i < params.length; i++) {
+          procEnv.vars[params[i]] = new LVariable(args[i])
+        }
+
+        return asyncEach(statement.data.statements, (statement, _cancel) => {
+          cancel = _cancel
+
+          return evaluateStatement(statement, procEnv)
+        }).then(() => {
+          cancel = null
+          return returnValue
+        })
+      }
+
+      env.vars[statement.data.name] = new LVariable(hook)
+
+      return
+    }
+
     return evaluateExpression(statement, env)
   }
 
-  for (let procDef of program.data.procedureDefs) {
-    hooks[procDef.data.name] = (obj = {}, args = [], parentEnv = null) => {
-      const env = new LEnvironment()
-      env.parentEnv = parentEnv
+  const globalEnv = new LEnvironment()
+  globalEnv.globalData = globalData
 
-      let cancel = null
-      let returnValue
+  return asyncEach(program.data.statements, statement => {
+    return evaluateStatement(statement, globalEnv)
+  }).then(() => {
+    const hooks = {}
 
-      env.on('returned', value => {
-        if (cancel) {
-          cancel()
-          returnValue = value
-        }
-      })
-
-      if (Object.keys(obj).length) {
-        console.warn(
-          'Keyword arguments cannot be passed to user procedures yet!' +
-          `(From ${procDef.data.name} call)`
-        )
+    for (let varName of Object.keys(globalEnv.vars)) {
+      const { value } = globalEnv.vars[varName]
+      if (value instanceof Function) {
+        hooks[varName] = value
       }
-
-      const params = procDef.data.parameters
-      for (let i = 0; i < args.length && i < params.length; i++) {
-        env.vars[params[i]] = args[i]
-      }
-
-      return asyncEach(procDef.data.statements, (statement, _cancel) => {
-        cancel = _cancel
-
-        return evaluateStatement(statement, env)
-      }).then(() => {
-        cancel = null
-        return returnValue
-      })
     }
-  }
 
-  return hooks
+    return hooks
+  })
 }
 
-module.exports = function(code, opts) {
+const getHooks = function(code, opts) {
   const program = parser(code)
 
   return interpret(program, opts)
 }
+
+module.exports = getHooks

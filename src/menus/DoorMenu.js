@@ -1,3 +1,6 @@
+// TODO: rename to DoorsMenu since it handles multiple doors (really all the
+// doors of a levelmap)
+
 const Menu = require('../Menu')
 const Levelmap = require('../Levelmap')
 const { filterOne } = require('../util')
@@ -86,7 +89,7 @@ module.exports = class DoorMenu extends Menu {
       get label() {
         return (
           `Spawn: ${door.spawnPos[0]}, ${door.spawnPos[1]}` +
-          ` on layer ${door.spawnPos[2] || -1}`
+          ` on layer ${door.spawnPos[2] >= 0 ? door.spawnPos[2] : '(Unset?)'}`
         )
       },
       selectable: false

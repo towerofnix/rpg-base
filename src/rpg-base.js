@@ -3,8 +3,6 @@ const Game = require('./Game')
 const { EDITOR_MODE_DOORMAP } = require('./Levelmap')
 const { filterOne } = require('./util')
 
-const HeroEntity = require('./entities/HeroEntity')
-
 const waitUntilLoaded = function(obj) {
   return new Promise((resolve) => {
     obj.addEventListener('load', () => resolve(obj))
@@ -38,10 +36,11 @@ waitUntilLoaded(atlasImage).then(() => {
     ctx.fillStyle = '#25A'
     ctx.fillRect(0, 0, canvasTarget.width, canvasTarget.height)
 
-    game.tick()
-    game.draw()
+    game.tick().then(() => {
+      game.draw()
 
-    requestAnimationFrame(draw)
+      requestAnimationFrame(draw)
+    })
   }
 
   draw()

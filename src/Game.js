@@ -1,10 +1,10 @@
 const Levelmap = require('./Levelmap')
 const KeyListener = require('./KeyListener')
-const HeroEntity = require('./entities/HeroEntity')
 const Dialog = require('./Dialog')
 const GameEditMenu = require('./menus/GameEditMenu')
+const CustomLanguage = require('./CustomLanguage')
 const { confirm } = require('./menus/ConfirmMenu')
-const { filterOne } = require('./util')
+const { filterOne, asyncEach } = require('./util')
 
 const fsp = require('fs-promise')
 const path = require('path')
@@ -39,6 +39,11 @@ module.exports = class Game {
     this.gameEditMenu = new GameEditMenu(this)
 
     this.anim = null
+    this.activeDoor = null
+
+    // Scriptscript access
+    this.customLanguage = new CustomLanguage(this)
+    this.levelmapHooks = {}
 
     // Dealing with javascript here, it's annoying.
     this._listeners = {
@@ -64,6 +69,8 @@ module.exports = class Game {
   }
 
   tick() {
+    let p
+
     // If there's a dialog being displayed, we'll tick it instead of everything
     // else..
     if (this.activeDialog) {
@@ -73,11 +80,13 @@ module.exports = class Game {
       // level, and we can (kind of) detect that by checking if the 'anim'
       // property is set.
       if (!this.anim) {
-        this.levelmap.tick()
+        p = this.levelmap.tick()
       }
     }
 
-    this.keyListener.clearJustPressed()
+    return Promise.resolve(p).then(() => {
+      this.keyListener.clearJustPressed()
+    })
   }
 
   setDialog(newDialog) {
@@ -117,25 +126,20 @@ module.exports = class Game {
         return
       }
 
+      // Used for spawned entities to position themselves.
+      this.activeDoor = door
+
       return this.loadLevelmapFromFile(door.to, {
         anim: true,
         loadedCb: () => {
-          const newHero = new HeroEntity(this.levelmap)
-          this.setupHeroEntity(newHero)
-          newHero.x = door.spawnPos[0]
-          newHero.y = door.spawnPos[1]
+          this.initializeLevelmap().then(() => {
+            // Keep edit mode, if that was enabled.
+            if (oldLevelmap.editorMode) {
+              this.levelmap.editorMode = oldLevelmap.editorMode
+            }
 
-          const layer = this.levelmap.layers[door.spawnPos[2] || 0]
-          if (layer) {
-            layer.entitymap.entities.push(newHero)
-          } else {
-            throw new Error('Door targets nonexistant layer')
-          }
-
-          // Keep edit mode, if that was enabled.
-          if (oldLevelmap.editorMode) {
-            this.levelmap.editorMode = oldLevelmap.editorMode
-          }
+            this.activeDoor = null
+          })
         }
       })
     })
@@ -215,61 +219,76 @@ module.exports = class Game {
     }
   }
 
-  loadLevelmapFromFile(path, {
-    transition = true, loadedCb = null, makeHero = false
-  } = {}) {
+  readPackageFile(path) {
+    // Reads a file given its game package path.
+    // (e.g. foo/bar/baz.json vs. /projects/rpg-base/game/foo/bar/baz.json)
+
     const realPath = this.packagePath + path
 
+    return fsp.readFile(realPath)
+  }
+
+  writePackageFile(path, text) {
+    // Writes to a file given its game package path. The counterpart to
+    // readPackageFile.
+
+    const realPath = this.packagePath + path
+
+    return fsp.writeFile(realPath, text)
+  }
+
+  loadLevelmapFromFile(path, {
+    transition = true, loadedCb = null
+  } = {}) {
     let endAnim = null
+
+    const levelmap = new Levelmap(this, 0, 0, this.tileAtlas)
+    levelmap.filePath = path
 
     return (transition ? this.levelTransition() : Promise.resolve())
       .then(_endAnim => {
         endAnim = _endAnim
 
-        return fsp.readFile(realPath)
+        return this.readPackageFile(path)
       })
       .then(buf => JSON.parse(buf.toString()))
       .then(obj => {
-        const levelmap = new Levelmap(this, 0, 0, this.tileAtlas)
-        levelmap.filePath = path
-        levelmap.loadFromSaveObj(obj)
-        this.loadLevelmap(levelmap)
-
-        if (makeHero) {
-          const hero = new HeroEntity(levelmap)
-          this.setupHeroEntity(hero)
-
-          const [ x, y, layer ] = levelmap.defaultSpawnPos
-
-          hero.x = x
-          hero.y = y
-          levelmap.layers[layer].entitymap.entities.push(hero)
-        }
-
+        return levelmap.loadFromSaveObj(obj)
+      })
+      .then(() => {
+        return this.loadLevelmap(levelmap)
+      }).then(() => {
         if (loadedCb) {
-          loadedCb()
+          return loadedCb()
         }
-
+      })
+      .then(() => {
         return (endAnim ? endAnim() : null)
       })
   }
 
   loadLevelmap(levelmap) {
-    this.levelmap = levelmap
+    return Promise.resolve().then(() => {
+      this.levelmap = levelmap
 
-    // If no new BGM is set, we'll stick to using whatever was set before.
-    if (levelmap.bgm && levelmap.bgm !== this.bgmPath) {
-      this.backgroundMusicAudio.pause()
-      this.backgroundMusicAudio.src = this.packagePath + levelmap.bgm
-      this.bgmPath = levelmap.bgm
-    }
+      if (levelmap.scriptPath) {
+        return fsp.readFile(this.packagePath + levelmap.scriptPath)
+          .then(code => this.customLanguage.getHooks(code.toString()))
+      } else {
+        return Promise.resolve({})
+      }
+    }).then(levelmapHooks => {
+      this.levelmapHooks = levelmapHooks
 
-    const hero = this.heroEntity
-    if (hero) {
-      this.setupHeroEntity(hero)
-    }
+      // If no new BGM is set, we'll stick to using whatever was set before.
+      if (levelmap.bgm && levelmap.bgm !== this.bgmPath) {
+        this.backgroundMusicAudio.pause()
+        this.backgroundMusicAudio.src = this.packagePath + levelmap.bgm
+        this.bgmPath = levelmap.bgm
+      }
 
-    this._listeners.init(levelmap, 'levelmap')
+      this._listeners.init(levelmap, 'levelmap')
+    })
   }
 
   saveLevelmap() {
@@ -277,6 +296,50 @@ module.exports = class Game {
     const str = JSON.stringify(this.levelmap.getSaveObj())
 
     return fsp.writeFile(realPath, str)
+  }
+
+  initializeLevelmap() {
+    // Initializes the loaded levelmap. This should be called immediately
+    // before testing/running a levelmap. If you call it again it'll initialize
+    // the level again (obviously), so you can do that if you're e.x. testing
+    // the level new again.
+
+    // We'll generally want to play the background music.
+    this.backgroundMusicAudio.play()
+
+    return asyncEach(this.levelmap.layers, layer => {
+      return layer.entitymap.loadEntityData()
+    })
+
+      // We want to run the 'spawn' code after all entities have been loaded.
+      // That's so that if the 'spawn' proc warps the entity to another
+      // layer (particularly a layer above where it spawned - greater index),
+      // that entity won't be removed when we run loadEntityData on the layer
+      // it teleported to.
+      //
+      // Of course, if we run loadEntityData later on on the layer it's
+      // positioned on, it'll be removed, but that's probably fine -- we
+      // probably won't be using loadEntityData except when loading a new
+      // levelmap, at which point we'd want to get rid of all entities
+      // anyways.
+      .then(() => asyncEach(this.levelmap.layers,
+        layer => asyncEach(layer.entitymap.entities, entity => {
+          if (entity.hooks.spawned) {
+            return entity.hooks.spawned()
+          }
+        })
+      ))
+      // ALSO THAT CODE TOOK ME ALL OF THE 29th TO FIGURE OUT HELP ME PLEASE
+      // (can we push now?)
+
+      .then(() => {
+        // If the levelmap script has a 'level-initialized' procedure, run that.
+        if (this.levelmapHooks['level-initialized']) {
+          return this.levelmapHooks['level-initialized']()
+        } else {
+          return Promise.resolve()
+        }
+      })
   }
 
   levelTransition() {

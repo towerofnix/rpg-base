@@ -108,12 +108,12 @@ module.exports = class TalkDialog extends Dialog {
     }
   }
 
-  static prompt(game, msg, portrait, talkSpeed) {
+  static prompt(game, config) {
     // Takes the same arguments as TalkDialog's constructor. Displays a talk
     // dialog and returns a promise that is resolved when the action/next key
     // is pressed on the dialog.
 
-    const dialog = new TalkDialog(game, msg, portrait, talkSpeed)
+    const dialog = new TalkDialog(game, config)
 
     const closeDialog = game.setDialog(dialog)
 

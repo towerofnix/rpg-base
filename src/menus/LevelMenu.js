@@ -4,6 +4,7 @@ const Levelmap = require('../Levelmap')
 const LayerMenu = require('./LayerMenu')
 const WorldResizeMenu = require('./WorldResizeMenu')
 const DoorMenu = require('./DoorMenu')
+const ConfirmCloseMenu = require('./ConfirmCloseMenu')
 const { confirm } = require('./ConfirmMenu')
 
 const fsp = require('fs-promise')
@@ -11,17 +12,11 @@ const fsp = require('fs-promise')
 module.exports = class LevelMenu extends Menu {
   constructor(levelmap) {
     super(levelmap.game, [
-      {label: 'Edit World..', action: () => {
-        levelmap.game.setDialog(null)
-        levelmap.editorMode = Levelmap.EDITOR_MODE_WORLD
-      }},
+      {label: 'Edit World..', action: () => this.editWorld()},
       {label: 'Edit General Map Data..', action: () => this.generalMenu()},
       {label: 'Edit Layers..', action: () => this.layerMenu()},
       {label: 'Edit Doors..', action: () => this.doorMenu()},
-      {label: 'Edit Doormap..', action: () => {
-        levelmap.game.setDialog(null)
-        levelmap.editorMode = Levelmap.EDITOR_MODE_DOORMAP
-      }},
+      {label: 'Edit Doormap..', action: () => this.editDoormap()},
       {label: 'Resize Map..', action: () => this.resizeMenu()},
       {label: 'Test', action: () => this.test()},
       {label: 'Save', action: () => this.save()},
@@ -29,6 +24,11 @@ module.exports = class LevelMenu extends Menu {
     ])
 
     this.levelmap = levelmap
+  }
+
+  editWorld() {
+    this.game.setDialog(null)
+    this.levelmap.editorMode = Levelmap.EDITOR_MODE_WORLD
   }
 
   resizeMenu() {
@@ -46,6 +46,11 @@ module.exports = class LevelMenu extends Menu {
   doorMenu() {
     const menu = new DoorMenu(this.levelmap)
     this.initSubmenu(menu)
+  }
+
+  editDoormap() {
+    this.game.setDialog(null)
+    this.levelmap.editorMode = Levelmap.EDITOR_MODE_DOORMAP
   }
 
   generalMenu() {
@@ -118,11 +123,12 @@ module.exports = class LevelMenu extends Menu {
 
   test() {
     this.game.setDialog(null)
+    this.game.initializeLevelmap()
     this.levelmap.enableTestMode()
   }
 
   save() {
-    game.saveLevelmap()
+    this.game.saveLevelmap()
       .then(() => {
         console.log('Saved.')
       })
@@ -132,36 +138,21 @@ module.exports = class LevelMenu extends Menu {
   }
 
   close() {
-    const discardChangesItem = {
-      label: 'Yes, discard changes', action: () => {
+    const menu = new ConfirmCloseMenu(this.game)
+
+    menu.on('discard-closed', () => {
+      this.levelmap.emit('closed', this.levelmap)
+    })
+
+    menu.on('save-closed', () => {
+      this.game.saveLevelmap().then(() => {
         this.levelmap.emit('closed', this.levelmap)
-      }
-    }
+      })
+    })
 
-    const saveChangesItem = {
-      label: 'Yes, save changes', action: () => {
-        this.game.saveLevelmap().then(() => {
-          this.levelmap.emit('closed', this.levelmap)
-        })
-      }
-    }
-
-    const cancelItem = {
-      label: 'No, cancel', action: () => {
-        closeMenu()
-      }
-    }
-
-    const menu = new Menu(this.game, [
-      {label: 'Close the level?', selectable: false},
-      {label: 'Discards unsaved changes.', selectable: false},
-      {label: '', selectable: false},
-      discardChangesItem,
-      saveChangesItem,
-      cancelItem
-    ])
-
-    menu.selectedIndex = menu.items.indexOf(saveChangesItem)
+    menu.on('canceled', () => {
+      closeMenu()
+    })
 
     const closeMenu = this.game.setDialog(menu)
   }

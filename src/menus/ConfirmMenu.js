@@ -4,7 +4,7 @@ module.exports = class ConfirmMenu extends Menu {
   constructor(game, msg = 'Are you sure?', defaultSelection = true) {
     super(game, [
       {label: msg, selectable: false},
-      {label: ''},
+      {label: '', selectable: false},
       {label: 'Yes', action: () => this.emit('yesSelected')},
       {label: 'No', action: () => this.emit('noSelected')}
     ])

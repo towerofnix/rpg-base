@@ -1,4 +1,5 @@
 const Menu = require('../Menu')
+const EntitiesMenu = require('./EntitiesMenu')
 
 module.exports = class LayerMenu extends Menu {
   constructor(levelmap) {
@@ -25,7 +26,7 @@ module.exports = class LayerMenu extends Menu {
       this.items.push({
         label: label,
         action: () => {
-          this.selectedIndex += 1
+          this.selectedIndex += 3 // to 'edit layer data'
           this.constraints()
         },
         keyAction: (key) => {
@@ -49,6 +50,9 @@ module.exports = class LayerMenu extends Menu {
       }})
       this.items.push({label: '  Move Up', action: () => {
         this.moveUpLayer(i)
+      }})
+      this.items.push({label: '  Edit Layer Data..', action: () => {
+        this.editLayerData(layer)
       }})
     }
 
@@ -110,5 +114,28 @@ module.exports = class LayerMenu extends Menu {
     layer.visibleInEditor = !layer.visibleInEditor
 
     this.setupItems()
+  }
+
+  editLayerData(layer) {
+    const menu = new Menu(this.game, [
+      {label: `Layer ${this.newLayers.indexOf(layer)}\n`, selectable: false},
+      {label: 'Edit Entities..', action: () => {
+        this.editEntitiesOfLayer(layer)
+      }},
+      {label: 'Back', action: () => closeMenu()}
+    ])
+
+    menu.on('canceled', () => closeMenu())
+
+    const closeMenu = this.game.setDialog(menu)
+  }
+
+  editEntitiesOfLayer(layer) {
+    const menu = new EntitiesMenu(this.game, layer.entitymap)
+
+    menu.on('canceled', () => closeMenu())
+    menu.on('closed', () => closeMenu())
+
+    const closeMenu = this.game.setDialog(menu)
   }
 }

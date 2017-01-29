@@ -10,7 +10,17 @@ module.exports = class Entity extends EventEmitter {
     this.y = 0
     this.lastX = 0
     this.lastY = 0
+
+    this.hooks = {}
   }
+
+  // Is this how you're supposed to do (modifiable) class properties?
+  static get scriptPath() { return this._scriptPath || '' }
+  static set scriptPath(newPath) { this._scriptPath = newPath }
+  get scriptPath() { return this.constructor.scriptPath }
+
+  static get filePath() { return this._filePath || '' }
+  static set filePath(newPath) { this._filePath = newPath }
 
   tick() {
     // Override me! (And probably call super.tick.)
@@ -48,5 +58,17 @@ module.exports = class Entity extends EventEmitter {
 
   get moved() {
     return (this.lastX !== this.x) || (this.lastY !== this.y)
+  }
+
+  static clsLoadFromSaveObj(save) {
+    const { scriptPath = '' } = save
+
+    this.scriptPath = scriptPath
+  }
+
+  static clsGetSaveObj() {
+    return {
+      scriptPath: this.scriptPath
+    }
   }
 }

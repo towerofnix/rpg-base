@@ -1,3 +1,11 @@
+// Boo hoo, this class is sad.
+// Soon enough it won't exist anymore..
+
+// TODO/XXX/XYZ: delete on next commit (or something)
+// along with RoamEntity, of course
+
+// -- wow, I much prefer starting comments with '--'
+
 const Entity = require('../Entity')
 const TalkDialog = require('../TalkDialog')
 

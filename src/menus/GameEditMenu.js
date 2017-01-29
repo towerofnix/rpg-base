@@ -1,39 +1,19 @@
 const Menu = require('../Menu')
 const Levelmap = require('../Levelmap')
-const TalkDialog = require('../TalkDialog')
-const language = require('../language')
+const Entity = require('../Entity')
+const EntityEditMenu = require('./EntityEditMenu')
+
+const fsp = require('fs-promise')
+const path = require('path')
 
 module.exports = class GameEditMenu extends Menu {
   constructor(game) {
     super(game, [
-      {label: 'Script Test..', action: () => {
-        const hooks = language(`
-
-main() {
-  -- Comments, yay
-  talk-dialog('Hello..?' :: talk-speed=30)
-}
-
-`, {
-          customBuiltins: {
-            'talk-dialog': (opts, msg) => {
-              const {
-                'talk-speed': talkSpeed = 1, portrait = ''
-              } = (opts || {})
-              return TalkDialog.prompt(game, {
-                msg: String(msg),
-                talkSpeed: Number(talkSpeed),
-                portrait: String(portrait)
-              })
-            }
-          }
-        })
-
-        hooks.main()
-      }},
       {label: 'General Game Data..', action: () => this.generalMenu()},
       {label: 'Open Level..', action: () => this.openLevel()},
-      {label: 'New Level..', action: () => this.newLevel()}
+      {label: 'New Level..', action: () => this.newLevel()},
+      {label: 'Open Entity..', action: () => this.openEntity()},
+      {label: 'New Entity..', action: () => this.newEntity()}
     ])
   }
 
@@ -57,8 +37,7 @@ main() {
     if (packagePath) {
       this.game.setDialog(null)
       this.game.loadLevelmapFromFile(packagePath, {
-        transition: false,
-        makeHero: true
+        transition: false
       }).then(() => {
         this.game.setDialog(this.game.levelmap.editInfoMenu)
       })
@@ -78,11 +57,60 @@ main() {
       this.game.loadLevelmap(levelmap)
       this.game.saveLevelmap().then(() => {
         return this.game.loadLevelmapFromFile(packagePath, {
-          transition: false,
-          makeHero: true
+          transition: false
         })
       }).then(() => {
         this.game.setDialog(this.game.levelmap.editInfoMenu)
+      })
+    }
+  }
+
+  openEntity() {
+    const packagePath = this.game.pickFile({
+      title: 'Open Entity',
+      filters: [
+        {name: 'Entity Files', extensions: ['json']}
+      ]
+    })
+
+    if (packagePath) {
+      return this.game.readPackageFile(packagePath).then(save => {
+        const EntityCls = class extends Entity {}
+        EntityCls.clsLoadFromSaveObj(JSON.parse(save))
+
+        const menu = new EntityEditMenu(this.game, EntityCls)
+        const closeMenu = this.game.setDialog(menu)
+        menu.on('closed', closeMenu)
+      })
+    }
+  }
+
+  newEntity() {
+    const entityPath = this.game.pickSaveFile({
+      filters: [
+        {name: 'Entity File', extensions: ['json']}
+      ]
+    })
+
+    if (entityPath) {
+      const EntityCls = class extends Entity {}
+
+      const p = path.parse(entityPath)
+      const scriptPath = `${p.dir}/${p.name}.ss`
+
+      EntityCls.scriptPath = scriptPath
+
+      const save = JSON.stringify(EntityCls.clsGetSaveObj())
+
+      return Promise.all([
+        fsp.readFile(__dirname + '/../default-entity-script.ss')
+          .then(code => this.game.writePackageFile(scriptPath, code)),
+
+        this.game.writePackageFile(entityPath, save)
+      ]).then(() => {
+        const menu = new EntityEditMenu(this.game, EntityCls)
+        const closeMenu = this.game.setDialog(menu)
+        menu.on('closed', closeMenu)
       })
     }
   }

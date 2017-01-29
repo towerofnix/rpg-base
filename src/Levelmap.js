@@ -30,8 +30,7 @@ const Doormap = require('./Doormap')
 const AtlasTilePicker = require('./AtlasTilePicker')
 const TileCursor = require('./TileCursor')
 const InfoDialog = require('./InfoDialog')
-const HeroEntity = require('./entities/HeroEntity')
-const { makeKeyAction } = require('./util')
+const { makeKeyAction, asyncEach } = require('./util')
 
 const LevelMenu = require('./menus/LevelMenu')
 
@@ -177,6 +176,10 @@ class Levelmap extends EventEmitter {
     // This should be set by Game when a levelmap is loaded from a file.
     this.filePath = null
 
+    this.bgm = ''
+
+    this.scriptPath = ''
+
     this.layers = [this.createLayer()]
     this.doors = []
     this.defaultSpawnPos = [0, 0, 0] // x, y, layer
@@ -302,16 +305,16 @@ class Levelmap extends EventEmitter {
 
   tick() {
     if (this.editorMode) {
-      this.editModeTick()
+      return this.editModeTick()
     } else {
-      this.gameTick()
+      return this.gameTick()
     }
   }
 
   gameTick() {
-    for (let { entitymap } of this.layers) {
-      entitymap.tick()
-    }
+    return asyncEach(this.layers, ({ entitymap }) => {
+      return entitymap.tick()
+    })
   }
 
   editModeTick() {
@@ -616,15 +619,12 @@ class Levelmap extends EventEmitter {
       width: this.width,
       height: this.height,
       bgm: this.bgm,
+      scriptPath: this.scriptPath,
       layers: this.layers.map(layer => ({
         tiles: layer.tilemap.items.slice(0),
         walls: layer.wallmap.items.slice(0),
         doors: layer.doormap.items.slice(0),
-        entities: layer.entitymap.entityData.map(
-          // TODO: More than just hero support.. probably need some dictionary
-          // of ids -> entities somewhere.
-          ([ cls, x, y ]) => ['__HERO__', x, y]
-        )
+        entities: layer.entitymap.entityData.slice(0)
       })),
       doors: this.doors.map(door => ({
         to: door.to,
@@ -639,14 +639,15 @@ class Levelmap extends EventEmitter {
       width = 10, height = 10,
       layers = [], doors = [],
       defaultSpawnPos = [],
-      bgm = ''
+      bgm = '', scriptPath = ''
     } = save
 
     this.width = width
     this.height = height
     this.bgm = bgm
+    this.scriptPath = scriptPath
 
-    this.layers = layers.map(layerObj => {
+    return asyncEach(layers, layerObj => {
       const layer = this.createLayer()
 
       const { tiles = [], walls = [], doors = [], entities = [] } = layerObj
@@ -654,28 +655,29 @@ class Levelmap extends EventEmitter {
       layer.tilemap.items = tiles.slice(0)
       layer.wallmap.items = walls.slice(0)
       layer.doormap.items = doors.slice(0)
-      layer.entitymap.loadEntityData(entities.map(([ clsID, x, y ]) => [
-        HeroEntity, x, y
-      ]))
+
+      layer.entitymap.entityData = entities.slice(0)
 
       return layer
+    }).then(layers => {
+      this.layers = layers
+    }).then(() => {
+      this.doors = doors.map((doorObj) => {
+        const door = this.createDoor()
+
+        const { to = null, spawnPos = [0, 0] } = (doorObj || {})
+
+        door.to = to
+        door.spawnPos = spawnPos
+
+        return door
+      })
+
+      const [ dspX = 0, dspY = 0, dspL = 0 ] = defaultSpawnPos
+      this.defaultSpawnPos = [dspX, dspY, dspL]
+
+      this.cleanLayers()
     })
-
-    this.doors = doors.map((doorObj) => {
-      const door = this.createDoor()
-
-      const { to = null, spawnPos = [0, 0] } = (doorObj || {})
-
-      door.to = to
-      door.spawnPos = spawnPos
-
-      return door
-    })
-
-    const [ dspX = 0, dspY = 0, dspL = 0 ] = defaultSpawnPos
-    this.defaultSpawnPos = [dspX, dspY, dspL]
-
-    this.cleanLayers()
   }
 
   cleanLayers() {

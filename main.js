@@ -44,8 +44,8 @@ const setupMenubar = () => {
           click() {
             dialog.showMessageBox({
               type: 'info',
-              message: 'Unnamed Editor (Calexico)',
-              detail: 'Version Calexico (001), released.. not yet!'
+              message: 'Unnamed Editor (Bietigheim-Bissingen)',
+              detail: 'Version Bietigheim-Bissingen (002), released.. not yet!'
             })
           }
         }

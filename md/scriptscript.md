@@ -80,3 +80,47 @@ main() {
 That'll display a talk dialog with the message 'Hello..?' mostly the same as
 usual, except that it'll reveal characters slower (because greater
 `talk-speed`s mean slower text, *obviously*).
+
+## Implementing Scriptscript
+
+Scriptscript's internals are a bit messy, but the general idea is that you call
+`language` and that returns you an object mapping of keys you can call. Here's
+an example:
+
+```js
+hooks = language(`
+  main() {
+    -- Does something
+    do-something()
+  }
+`)
+
+// returns:
+
+hooks == {
+  main: function() {
+    // runs the statements in the `main` procedure definition
+  }
+}
+```
+
+Of course that will only work if the builtin function `do-something` actually
+existed, and it doesn't, so you have to implement it as a custom builtin:
+
+```js
+hooks = language(`..`, {
+  customBuiltins: {
+    'do-something': function() {
+      console.log('Whee')
+    }
+  }
+})
+```
+
+Now if you run `hooks.main()` the text `Whee` should be logged out to the
+console.
+
+I called the return variable `hooks` because that's really what it is - a bunch
+of hooks, or functions that let you "hook into" the functionality of the
+Scriptscript program. They also let you "drag" that functionality with you. Or
+whatever.
