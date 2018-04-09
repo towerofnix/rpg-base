@@ -6,7 +6,7 @@ const { asyncEach } = require('./util')
 
 const EventEmitter = require('events')
 const fsp = require('fs-promise')
-const { makeParser } = require('../lib/syn/Syn')
+const { makeParser } = require('../lib/syn/syn')
 
 const isWhitespace = char => (char === ' ' || char === '\n')
 
