@@ -6,10 +6,14 @@ const CustomLanguage = require('./CustomLanguage')
 const { confirm } = require('./menus/ConfirmMenu')
 const { filterOne, asyncEach } = require('./util')
 
-const fsp = require('fs-promise')
+const fs = require('fs')
 const path = require('path')
+const util = require('util')
 const { spawn } = require('child_process')
 const { dialog } = require('electron').remote
+
+const readFile = util.promisify(fs.readFile)
+const writeFile = util.promisify(fs.writeFile)
 
 module.exports = class Game {
   // TODO: Support having multiple heroes!
@@ -225,7 +229,7 @@ module.exports = class Game {
 
     const realPath = this.packagePath + path
 
-    return fsp.readFile(realPath)
+    return readFile(realPath)
   }
 
   writePackageFile(path, text) {
@@ -234,7 +238,7 @@ module.exports = class Game {
 
     const realPath = this.packagePath + path
 
-    return fsp.writeFile(realPath, text)
+    return writeFile(realPath, text)
   }
 
   loadLevelmapFromFile(path, {
@@ -272,7 +276,7 @@ module.exports = class Game {
       this.levelmap = levelmap
 
       if (levelmap.scriptPath) {
-        return fsp.readFile(this.packagePath + levelmap.scriptPath)
+        return readFile(this.packagePath + levelmap.scriptPath)
           .then(code => this.customLanguage.getHooks(code.toString()))
       } else {
         return Promise.resolve({})
@@ -295,7 +299,7 @@ module.exports = class Game {
     const realPath = this.packagePath + this.levelmap.filePath
     const str = JSON.stringify(this.levelmap.getSaveObj())
 
-    return fsp.writeFile(realPath, str)
+    return writeFile(realPath, str)
   }
 
   initializeLevelmap() {

@@ -3,8 +3,11 @@ const Levelmap = require('../Levelmap')
 const Entity = require('../Entity')
 const EntityEditMenu = require('./EntityEditMenu')
 
-const fsp = require('fs-promise')
+const fs = require('fs')
 const path = require('path')
+const util = require('util')
+
+const readFile = util.promisify(fs.readFile)
 
 module.exports = class GameEditMenu extends Menu {
   constructor(game) {
@@ -103,7 +106,7 @@ module.exports = class GameEditMenu extends Menu {
       const save = JSON.stringify(EntityCls.clsGetSaveObj())
 
       return Promise.all([
-        fsp.readFile(__dirname + '/../default-entity-script.ss')
+        readFile(__dirname + '/../default-entity-script.ss')
           .then(code => this.game.writePackageFile(scriptPath, code)),
 
         this.game.writePackageFile(entityPath, save)

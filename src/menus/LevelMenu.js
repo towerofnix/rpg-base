@@ -7,8 +7,6 @@ const DoorMenu = require('./DoorMenu')
 const ConfirmCloseMenu = require('./ConfirmCloseMenu')
 const { confirm } = require('./ConfirmMenu')
 
-const fsp = require('fs-promise')
-
 module.exports = class LevelMenu extends Menu {
   constructor(levelmap) {
     super(levelmap.game, [

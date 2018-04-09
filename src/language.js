@@ -5,8 +5,11 @@
 const { asyncEach } = require('./util')
 
 const EventEmitter = require('events')
-const fsp = require('fs-promise')
+const fs = require('fs')
+const util = require('util')
 const { makeParser } = require('../lib/syn/syn')
+
+const readFile = util.promisify(fs.readFile)
 
 const isWhitespace = char => (char === ' ' || char === '\n')
 
@@ -334,7 +337,7 @@ const interpret = function(program, { globalData = {} } = {}) {
     'import': (kwargs, [ path ], { globalData }) => {
       const { importPath = '' } = globalData
 
-      return fsp.readFile(importPath + path).then((code) => {
+      return readFile(importPath + path).then((code) => {
 
         // We want imported code to have the same globalData as this code, so
         // we'll set that on the env..
