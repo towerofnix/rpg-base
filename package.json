@@ -2,5 +2,8 @@
   "main": "main.js",
   "dependencies": {
     "fs-promise": "^1.0.0"
+  },
+  "scripts": {
+    "start": "electron ."
   }
 }
