@@ -15,7 +15,7 @@ module.exports = class Doormap extends BaseItemMap {
         this.levelmap.tileSize, this.levelmap.tileSize
       )
 
-      ctx.font = '12px manaspace'
+      ctx.font = `12px ${this.game.fontFamily}`
       ctx.textAlign = 'center'
       ctx.fillText(
         door,

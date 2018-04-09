@@ -1,8 +1,8 @@
 const Dialog = require('./Dialog')
 
 module.exports = class InfoDialog extends Dialog {
-  constructor(text = '') {
-    super()
+  constructor(game, text = '') {
+    super(game)
 
     this.text = text
     this.timer = null
@@ -14,7 +14,7 @@ module.exports = class InfoDialog extends Dialog {
       ctx.fillStyle = '#007'
       ctx.fillRect(0, 0, canvasTarget.width, canvasTarget.height)
 
-      ctx.font = '14px manaspace'
+      ctx.font = `14px ${this.game.fontFamily}`
       ctx.textAlign = 'center'
       ctx.fillStyle = 'white'
       ctx.fillText(

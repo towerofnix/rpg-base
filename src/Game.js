@@ -32,6 +32,8 @@ module.exports = class Game {
     this.heroEntity = null
     this.tileAtlas = null
 
+    this.fontFamily = 'manaspace, monospace'
+
     this.backgroundMusicAudio = document.createElement('audio')
     this.backgroundMusicAudio.loop = true
     this.bgmPath = ''

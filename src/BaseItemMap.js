@@ -9,6 +9,7 @@ module.exports = class BaseItemMap {
   // as well as the map dimensions (width and height).
 
   constructor(levelmap) {
+    this.game = levelmap.game
     this.levelmap = levelmap
     this.items = new Array(levelmap.width * levelmap.height).fill(0)
   }

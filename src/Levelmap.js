@@ -165,7 +165,7 @@ class Levelmap extends EventEmitter {
     })
 
     this.editInfoMenu = new LevelMenu(this)
-    this.editInfoDialog = new InfoDialog()
+    this.editInfoDialog = new InfoDialog(this.game)
 
     this.editIsPlacingTiles = false
 

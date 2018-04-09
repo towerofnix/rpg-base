@@ -22,9 +22,10 @@ const exportConstants = () => {
 }
 
 module.exports = class Dialog extends EventEmitter {
-  constructor() {
+  constructor(game) {
     super()
 
+    this.game = game
     this.renderMode = DIALOG_MODE_REPLACE
   }
 

@@ -18,9 +18,8 @@ module.exports = class Menu extends Dialog {
   // Emits the 'canceled' event when the escape key is pressed.
 
   constructor(game, items) {
-    super()
+    super(game)
 
-    this.game = game
     this.items = items
 
     this.blink = 0
@@ -39,7 +38,7 @@ module.exports = class Menu extends Dialog {
     ctx.fillStyle = 'black'
     ctx.fillRect(0, 0, width, height)
 
-    ctx.font = '14px manaspace'
+    ctx.font = `14px ${this.game.fontFamily}`
 
     let lineNum = 0
 

@@ -23,12 +23,11 @@ module.exports = class TalkDialog extends Dialog {
     //              (null is default) to hide the portrait box altogether.
     //   (textBoxAlign) The side of the screen to align the text box to.
     //                  Either 'top' or 'bottom'; 'bottom' by default.
-    //   (portraitBoxAlign) The side of the screen to align the portrait box 
+    //   (portraitBoxAlign) The side of the screen to align the portrait box
     //                      to. Either 'left' or 'right'; 'left' by default.
 
-    super()
+    super(game)
 
-    this.game = game
     this.msg = msg
     this.talkSpeed = talkSpeed
 
@@ -75,7 +74,7 @@ module.exports = class TalkDialog extends Dialog {
     ctx.fillRect(textBoxX + 4, textBoxY + 4, width - 8, 80 - 8)
 
     ctx.fillStyle = 'white'
-    ctx.font = '14px manaspace'
+    ctx.font = `14px ${this.game.fontFamily}`
     const text = this.msg.slice(0, this.renderChars)
     ctx.fillText(text, textBoxX + 8, textBoxY + 22)
 
