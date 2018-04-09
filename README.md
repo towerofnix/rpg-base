@@ -32,7 +32,7 @@ The program is an [Electron][electron] app, so you'll need to get that
 installed first. Then install:
 
 ```sh
-$ yarn # or npm install..
+$ npm install
 ```
 
 ..and run:
