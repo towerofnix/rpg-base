@@ -40,4 +40,8 @@ module.exports = class KeyListener {
 
     return [32, 13].some(k => this.isJustPressed(k))
   }
+
+  isHelpPressed() {
+    return this.isJustPressed(112) || (this.isJustPressed(191) && this.isPressed(16))
+  }
 }

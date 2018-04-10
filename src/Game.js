@@ -2,6 +2,7 @@ const Levelmap = require('./Levelmap')
 const KeyListener = require('./KeyListener')
 const Dialog = require('./Dialog')
 const GameEditMenu = require('./menus/GameEditMenu')
+const HelpDialog = require('./HelpDialog')
 const CustomLanguage = require('./CustomLanguage')
 const { confirm } = require('./menus/ConfirmMenu')
 const { filterOne, asyncEach } = require('./util')
@@ -111,6 +112,26 @@ module.exports = class Game {
     return () => {
       this.activeDialog = oldDialog
     }
+  }
+
+  showHelp(key) {
+    // If the user closes a help screen for a moment, then returns to it
+    // before viewing any other help screen, don't reset the scroll position.
+    if (this.helpLastKey !== key) {
+      this.helpScrollLines = 0
+      this.helpLastKey = key
+    }
+
+    const helpDialog = new HelpDialog(this, key)
+    helpDialog.scrollLines = this.helpScrollLines
+    helpDialog.on('closed', () => {
+      this.helpScrollLines = helpDialog.scrollLines
+      this.helpLastKey = key
+      hideDialog()
+    })
+    const hideDialog = this.setDialog(helpDialog)
+
+    this.wrappedText = null
   }
 
   setupHeroEntity(hero) {

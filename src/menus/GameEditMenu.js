@@ -18,15 +18,17 @@ module.exports = class GameEditMenu extends Menu {
       {label: 'Open Entity..', action: () => this.openEntity()},
       {label: 'New Entity..', action: () => this.newEntity()}
     ])
+
+    this.helpKey = 'gameEditMenu'
   }
 
   generalMenu() {
-    const closeMenu = this.game.setDialog(new Menu(game, [
+    const closeMenu = this.game.setDialog(Object.assign(new Menu(game, [
       {label: 'Reveal game package path', action: () => {
         this.game.revealFolder('.')
       }, selectable: (process.platform === 'darwin')},
       {label: 'Back', action: () => closeMenu()}
-    ]))
+    ]), {helpKey: 'generalGameDataMenu'}))
   }
 
   openLevel() {

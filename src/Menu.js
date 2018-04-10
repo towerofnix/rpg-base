@@ -28,6 +28,8 @@ module.exports = class Menu extends Dialog {
 
     this.selectedIndex = 0
     this.constraints(+1)
+
+    this.helpKey = 'menuWithoutHelpKey'
   }
 
   drawTo(canvasTarget) {
@@ -82,7 +84,10 @@ module.exports = class Menu extends Dialog {
 
     let direction = 0
 
-    if (keyListener.isPressed(38)) { // Up
+    if (keyListener.isHelpPressed()) {
+      this.game.showHelp(this.helpKey)
+      return
+    } else if (keyListener.isPressed(38)) { // Up
       if (this.selectDelay === 0) {
         this.selectedIndex--
         this.selectDelay = delay

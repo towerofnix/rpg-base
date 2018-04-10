@@ -492,7 +492,7 @@ class Levelmap extends EventEmitter {
     // the wall under the tile cursor.
 
     const { wallmap } = this.selectedLayer
-    
+
     const wall = wallmap.getItemAt(this.tileCursor.x, this.tileCursor.y)
     const newWall = wall ^ wallFlag
 
